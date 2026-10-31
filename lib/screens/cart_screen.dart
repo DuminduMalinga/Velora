@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../state/shop_state.dart';
+import '../data/product_repository.dart';
 
 /// Shared by the Home cart tab and standalone routes from product details.
 class CartScreen extends StatelessWidget {
@@ -11,12 +12,14 @@ class CartScreen extends StatelessWidget {
     this.onProductTap,
     this.onCheckout,
     this.embedded = false,
+    this.repository,
   });
   final ShopState shop;
   final VoidCallback onContinueShopping;
   final ValueChanged<Product>? onProductTap;
   final Future<void> Function()? onCheckout;
   final bool embedded;
+  final ProductRepository? repository;
 
   String _money(double amount, String? currency) =>
       '${currency == null ? '' : '$currency '}${amount.toStringAsFixed(2)}';
@@ -59,6 +62,38 @@ class CartScreen extends StatelessWidget {
                         style: const TextStyle(color: Color(0xFF94A3BF)),
                       ),
                       const SizedBox(height: 28),
+                      if (repository != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: TextButton.icon(
+                            onPressed: () async {
+                              try {
+                                await shop.refreshCart(repository!);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Prices and available quantities updated.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Could not refresh your bag. Your current items are still shown.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.refresh, size: 18),
+                            label: const Text('Refresh prices & stock'),
+                          ),
+                        ),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final items = Column(

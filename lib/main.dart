@@ -4,9 +4,23 @@ import 'screens/home_screen.dart';
 
 void main() => runApp(const MyApp());
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key, this.repository});
   final ProductRepository? repository;
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final ProductRepository _repository =
+      widget.repository ?? ApiProductRepository();
+
+  @override
+  void dispose() {
+    if (widget.repository == null) _repository.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -35,6 +49,6 @@ class MyApp extends StatelessWidget {
         ),
       ),
     ),
-    home: HomeScreen(repository: repository ?? ApiProductRepository()),
+    home: HomeScreen(repository: _repository),
   );
 }

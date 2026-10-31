@@ -12,7 +12,7 @@ class ProductDetailsScreen extends StatefulWidget {
     required this.shop,
     this.onContinueShopping,
   });
-  final String productId;
+  final int productId;
   final ProductRepository repository;
   final ShopState shop;
   final VoidCallback? onContinueShopping;
@@ -26,6 +26,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   ProductVariation? _variation;
   bool _loading = true;
   Object? _error;
+  Object? _relatedError;
+  bool _relatedLoading = false;
   int _quantity = 1;
   int _image = 0;
 
@@ -41,25 +43,37 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       _error = null;
     });
     try {
-      final products = await widget.repository.fetchProducts();
-      final product = products
-          .where((p) => p.id == widget.productId)
-          .firstOrNull;
+      final product = await widget.repository.getProduct(widget.productId);
       if (!mounted) return;
       setState(() {
         _product = product;
         _variation = null;
         _quantity = 1;
         _image = 0;
-        _related = product?.category == null
-            ? []
-            : products
-                  .where(
-                    (p) =>
-                        p.id != product!.id && p.category == product.category,
-                  )
-                  .toList();
+        _related = [];
+        _relatedError = null;
+        _loading = false;
+        _relatedLoading = product?.category != null;
       });
+      if (product != null) widget.shop.reconcile(product);
+      if (product?.category != null) {
+        try {
+          final page = await widget.repository.getProducts(
+            category: product!.category,
+          );
+          if (mounted) {
+            setState(
+              () => _related = page.products
+                  .where((p) => p.id != product.id)
+                  .toList(),
+            );
+          }
+        } catch (error) {
+          if (mounted) setState(() => _relatedError = error);
+        } finally {
+          if (mounted) setState(() => _relatedLoading = false);
+        }
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
@@ -79,7 +93,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               tooltip: widget.shop.favorites.contains(widget.productId)
                   ? 'Remove from wishlist'
                   : 'Add to wishlist',
-              onPressed: () => widget.shop.toggleFavorite(widget.productId),
+              onPressed: () => widget.shop.toggleFavorite(
+                widget.productId,
+                product: _product,
+              ),
               icon: Icon(
                 widget.shop.favorites.contains(widget.productId)
                     ? Icons.favorite
@@ -93,6 +110,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               MaterialPageRoute<void>(
                 builder: (_) => CartScreen(
                   shop: widget.shop,
+                  repository: widget.repository,
                   onContinueShopping: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                     widget.onContinueShopping?.call();
@@ -191,7 +209,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             style: TextStyle(color: Color(0xFF94A3BF)),
                           ),
                           const SizedBox(height: 18),
-                          if (_related.isEmpty)
+                          if (_relatedLoading)
+                            const SizedBox(
+                              height: 150,
+                              child: _DetailsSkeleton(imageOnly: true),
+                            )
+                          else if (_relatedError != null)
+                            TextButton.icon(
+                              onPressed: _load,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text(
+                                'Could not load related products. Retry',
+                              ),
+                            )
+                          else if (_related.isEmpty)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 20),
                               child: Text(
@@ -370,7 +401,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final stock = product.availableStock(_variation);
     final remaining = widget.shop.remaining(product, _variation);
     final canAdd = selected && stock != null && remaining >= _quantity;
-    final price = _variation?.price ?? product.price;
+    final price = _variation?.price ?? product.effectivePrice;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -402,7 +433,35 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        if (product.rating != null || product.reviewCount != null)
+        if ((product.discountPercentage ?? 0) > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 10,
+              children: [
+                Text(
+                  product.formatPrice(product.price),
+                  style: const TextStyle(
+                    decoration: TextDecoration.lineThrough,
+                    color: Color(0xFF94A3BF),
+                  ),
+                ),
+                Text(
+                  '${product.discountPercentage}% off',
+                  style: const TextStyle(color: Color(0xFF85AAFF)),
+                ),
+              ],
+            ),
+          ),
+        if (product.brand != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              product.brand!,
+              style: const TextStyle(color: Color(0xFF94A3BF)),
+            ),
+          ),
+        if (product.rating != null || product.reviews.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 14),
             child: Wrap(
@@ -417,11 +476,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ),
                   Text('${product.rating}'),
                 ],
-                if (product.reviewCount != null)
-                  Text(
-                    '(${product.reviewCount} reviews)',
-                    style: const TextStyle(color: Color(0xFF94A3BF)),
-                  ),
+                Text(
+                  '(${product.reviewCount} reviews)',
+                  style: const TextStyle(color: Color(0xFF94A3BF)),
+                ),
               ],
             ),
           ),
@@ -441,7 +499,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       : 'Stock availability not provided')
                 : stock == 0
                 ? 'Out of stock'
-                : '$stock available',
+                : '${product.availabilityStatus ?? 'Available'} - $stock in stock',
             style: const TextStyle(color: Color(0xFFACC7FF), fontSize: 12),
           ),
         ),
@@ -457,6 +515,48 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               : 'No description available.',
           style: const TextStyle(height: 1.7, color: Color(0xFFADB9D0)),
         ),
+        if (product.reviews.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const Text(
+            'Customer reviews',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          ),
+          for (final review in product.reviews)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      if (review.reviewerName != null)
+                        Text(
+                          review.reviewerName!,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      if (review.rating != null)
+                        Text(
+                          '${review.rating} ★',
+                          style: const TextStyle(color: Color(0xFFFFCC75)),
+                        ),
+                    ],
+                  ),
+                  if (review.comment != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Text(
+                        review.comment!,
+                        style: const TextStyle(
+                          color: Color(0xFFADB9D0),
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
         if (product.variations.isNotEmpty) ...[
           const SizedBox(height: 24),
           const Text(

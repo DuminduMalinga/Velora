@@ -1,48 +1,72 @@
-# Velora
+﻿# Velora
 
-Premium Flutter shopping interface with a navy and electric blue theme.
+Premium Flutter shopping UI connected directly to the [DummyJSON Products API](https://dummyjson.com/docs/products).
 
 ## Run
 
 ```sh
 flutter pub get
-flutter run --dart-define=PRODUCTS_API_URL=https://your-store.example/api/products
+flutter run
 ```
 
-Replace the URL with your store endpoint. No endpoint or demo products are bundled. Without configuration, the screen displays a connection setup state with Retry.
+The default API base URL is `https://dummyjson.com`. No product data, image URLs, category lists, or fallback catalog are embedded in Dart files. For a compatible API deployment, override the base URL (not a `/products` URL):
 
-The API repository accepts a JSON array or an object with a `products` or `data` array. Each product requires `id`, `name` (or `title`), and numeric `price`. Optional fields are `imageUrl` (or `image`, or the first URL in `images`), `category` (string or object with `name`), `currency` (display label), and `featured` / `isFeatured` (boolean). Featured products are shown only when marked by the API. Prices have no assumed currency. Categories are derived from returned products.
+```sh
+flutter run --dart-define=API_BASE_URL=https://your-compatible-api.example
+```
 
-Use HTTPS for production. Browser deployments require the API to allow CORS. Adapt `lib/data/product_repository.dart` to your API's authentication, pagination, or response contract as needed. Inject any `ProductRepository` into `MyApp` for integration and testing.
+`PRODUCTS_API_URL` is no longer used. The base URL is public configuration, not a place for credentials. Android and macOS have client network permissions; a custom browser API must allow CORS.
 
-`lib/main.dart` remains the app entry point and theme configuration. The screen lives in `lib/screens/home_screen.dart`, with a separate model and repository. Search, sorting, and filters apply to the fetched collection. Wishlist and cart are local to the running session; checkout and account services are not connected.
+## Architecture
+
+- `lib/main.dart`: app entry point, existing navy/blue theme, repository lifecycle.
+- `lib/models/product.dart`: `ProductModel`, integer product IDs, nullable optional metadata, actual reviews, `ProductCategory`, and `ProductPage`. `Product` is a compatibility typedef; `product_model.dart` exports the models.
+- `lib/data/product_api_service.dart`: HTTP, URI encoding, timeouts, status checking, JSON parsing, and typed API results.
+- `lib/data/product_repository.dart`: injectable `ProductRepository` and HTTP-backed `ApiProductRepository`.
+- `lib/state/product_provider.dart`: Flutter `ChangeNotifier` for catalog/search/category state, debounce, pagination, filtering, sorting, and stale-request protection. No extra state package is required.
+- `lib/state/shop_state.dart`: shared, session-only favorites and cart with API product snapshots, stock limits, totals, and refresh/reconciliation.
+- `lib/screens/`: Home, shared Search/Category catalog screen, product details, and cart. Wishlist remains the existing Home navigation tab.
+- `lib/widgets/product_card.dart`: reusable API product card and image loading/error handling.
+
+## API behavior
+
+| Feature | Request |
+| --- | --- |
+| Catalog / next page | `GET /products?limit=20&skip=0` (then subsequent skip values) |
+| Product details | `GET /products/{id}` |
+| Search | `GET /products/search?q={query}&limit=20&skip=0` |
+| Categories | `GET /products/categories` |
+| Category catalog | `GET /products/category/{slug}?limit=20&skip=0` |
+| Price sorting | `GET /products?sortBy=price&order=asc&limit=20&skip=0` (also descending) |
+| Title sorting | `GET /products?sortBy=title&order=asc&limit=20&skip=0` |
+
+Home searches as you type; submit the search field to open the dedicated Search screen. Category chips open Category screens using API-provided slugs and names. Load More appends real pages; errors never turn into sample products. Related products come from the current API category and exclude the selected product.
+
+DummyJSON does not document combined category+search or a maximum-price parameter. For those combinations, the provider fetches the relevant API result set using `limit=0`, then filters locally across that complete set. Maximum price compares discounted prices. Sort options explicitly say **List price**, because DummyJSON sorts its `price` field before discount. This distinction avoids claiming server sorting by a computed discount price.
+
+Product details fetch the selected integer ID directly, independently of catalog pagination. Missing products show an unavailable state; failed requests have retry actions. Related-product failures have a separate retry state. API reviews display their actual author, rating, and comment; email is parsed but not exposed in the UI.
+
+## Pricing, inventory, and cart
+
+The model retains the original API `price` and `discountPercentage`. The displayed/cart unit price is rounded to two decimals after applying `price * (1 - discountPercentage / 100)`. Cards and details show the original price and actual discount when present. Cart line subtotals and totals use integer cents to match the two-decimal display.
+
+DummyJSON product responses have no standard currency field; the app does not invent a currency label. A future compatible API can return `currency`, and the existing cart keeps different currencies separate.
+
+Stock comes from the API. Cart quantities cannot exceed available product stock, including quantities already in the bag. Unknown stock does not become unlimited inventory. **Refresh prices & stock** fetches each cart product again and reconciles changed prices, reduced stock, sold-out products, and deleted IDs. A failed refresh keeps the current bag and shows an error. Favorites retain actual API products across catalog pages.
+
+DummyJSON has no standard selectable sizes/colors/variant inventory. No variants are synthesized. The existing variant UI stays hidden unless a future compatible API supplies an explicit real `variations` list.
+
+## API limitations
+
+DummyJSON is a demonstration API. This app does not treat it as real commercial checkout, stock reservation, payment, or persistent order processing. Checkout explicitly shows that ordering is unavailable. Shipping costs are not inferred from shipping-description text; a future real quote service can supply `ShopState.setShippingQuote`. Unknown shipping is shown as unquoted and excluded from the estimated total. Cart and wishlist are in memory and reset when the app restarts. Profile/account services remain unconnected.
+
+## Verification
 
 ```sh
 flutter analyze
 flutter test
+flutter test --dart-define=RUN_LIVE_API_TESTS=true
+flutter build web --release
 ```
 
-## Product details
-
-Tap any catalog, featured, wishlist, or cart product to open `lib/screens/product_details_screen.dart`. The screen refreshes the existing repository's catalog and resolves the selected ID; it does not assume an undocumented detail endpoint. Related products share the returned category and exclude the selected ID. Replace or extend the repository when your API provides dedicated detail/related endpoints or pagination.
-
-Additional optional response fields:
-
-- `images`: list of image URL strings for the swipeable gallery.
-- `description`: product description string.
-- `rating`: number, or an object with `rate` / `average` and optional `count`.
-- `reviewCount`: nonnegative integer.
-- `stock` / `availableQuantity`: nonnegative integer; `inStock`: optional boolean.
-- `variations` / `variants`: list of purchasable variants, each with actual `id`, `name` / `label`, optional numeric `price` (otherwise inherits product price), and `stock` / `availableQuantity`. Adapt the model for other option/variant schemas.
-
-Missing rating/review fields are omitted. Missing description, images, and related products have empty states. Requests show skeletons and retryable errors; a missing selected ID shows an unavailable state.
-
-`ShopState` uses Flutter's `ChangeNotifier` to share favorites and session cart lines across routes. Each cart line retains the API product, variation ID, quantity, and effective unit price. A variation must be chosen before adding. Unknown quantities disable purchasing rather than inventing inventory; variants require their own reported stock, and product stock also caps the combined quantities when provided. Sold-out and already-added quantities disable further additions. Cart product prices show line totals, with variation unit prices below. No server cart, stock reservation, or checkout endpoint exists in this project; cart actions remain in memory and inventory must be revalidated by a backend when checkout is integrated.
-
-## Shopping cart
-
-`lib/screens/cart_screen.dart` is shared by the Home cart tab, app-bar bag button, and the cart route opened from product details. Continue Shopping returns to the Home collection. Each API variation has its own line, image, actual unit price, quantity controls, remove action, and calculated line total. Updates are driven by the existing `ShopState` notifier. The empty bag uses a code-drawn illustration and a working shopping action; there are no seeded cart items.
-
-`ShopState.setQuantity` rejects nonpositive quantities and stock overages, including total product stock across multiple variations. Remove deletes only the selected product/variation line. Subtotals use integer cents for the app's two-decimal price display and are grouped by currency; different currencies are never summed. The summary displays an estimated total when shipping is unknown.
-
-A shipping integration can supply an actual `ShippingQuote` with `ShopState.setShippingQuote`. Quotes must match the cart currency, are included in the total, and expire on any cart-content change. No shipping rate is invented. There is currently no shipping or checkout API in the repository. Checkout shows an explicit unavailable state without submitting an order or clearing the bag. `CartScreen.onCheckout` is an optional integration callback for a future checkout flow; cart contents and inventory must be validated server-side there. Session-only cart persistence is unchanged.
+The default tests exercise cart invariants and empty-cart layouts without fabricating API responses. The opt-in live tests require internet access and call real endpoints. They validate field mapping (including optional fields/reviews), real image downloads, search, categories, pagination, sorting, discounted prices, stock limits, cart calculations, provider behavior, and the Home -> details -> cart -> empty -> Home/wishlist journey. Live tests may fail when the external service or image CDN is unavailable; they do not substitute local products.

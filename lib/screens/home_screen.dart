@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../data/product_repository.dart';
 import '../models/product.dart';
 import '../state/shop_state.dart';
+import '../state/product_provider.dart';
 import 'product_details_screen.dart';
 import 'cart_screen.dart';
+import 'catalog_screen.dart';
+import '../widgets/product_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.repository});
@@ -13,12 +16,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Product> _products = [];
+  late final ProductProvider _catalog;
+  List<Product> get _products => _catalog.products;
   final ShopState _shop = ShopState();
-  Set<String> get _favorites => _shop.favorites;
-  Map<String, int> get _cart => _shop.quantities;
-  bool _loading = true;
-  Object? _error;
+  Map<int, int> get _cart => _shop.quantities;
+  Set<int> get _favorites => _shop.favorites;
+  bool get _loading => _tab == 1 ? false : _catalog.loading;
+  Object? get _error => _tab == 1 ? null : _catalog.error;
   String _query = '';
   String? _category;
   int _tab = 0;
@@ -28,80 +32,75 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _catalog = ProductProvider(widget.repository)..addListener(_catalogChanged);
     _shop.addListener(_shopChanged);
-    _load();
+    _catalog.initialize();
+  }
+
+  void _catalogChanged() {
+    _shop.rememberProducts(_catalog.products);
+    setState(() {});
   }
 
   void _shopChanged() => setState(() {});
-
-  void _continueShopping() => setState(() {
-    _tab = 0;
-    _query = '';
-    _category = null;
-    _maxPrice = null;
-  });
+  void _continueShopping() {
+    setState(() {
+      _tab = 0;
+      _query = '';
+      _category = null;
+      _maxPrice = null;
+    });
+    _load();
+  }
 
   @override
   void dispose() {
+    _catalog.removeListener(_catalogChanged);
+    _catalog.dispose();
     _shop.removeListener(_shopChanged);
     _shop.dispose();
     super.dispose();
   }
 
-  void _openProduct(Product product) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ProductDetailsScreen(
-          productId: product.id,
-          repository: widget.repository,
-          shop: _shop,
-          onContinueShopping: _continueShopping,
-        ),
+  void _openProduct(Product product) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ProductDetailsScreen(
+        productId: product.id,
+        repository: widget.repository,
+        shop: _shop,
+        onContinueShopping: _continueShopping,
       ),
-    );
-  }
-
+    ),
+  );
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final products = await widget.repository.fetchProducts();
-      if (mounted) setState(() => _products = products);
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+    _catalog.query = _query;
+    _catalog.category = _category;
+    _catalog.sort = _sort;
+    _catalog.maxPrice = _maxPrice;
+    await _catalog.refresh();
+    if (_catalog.categoriesError != null) await _catalog.loadCategories();
   }
 
-  List<String> get _categories => _products
-      .map((p) => p.category)
-      .whereType<String>()
-      .where((s) => s.isNotEmpty)
-      .toSet()
-      .toList();
+  List<ProductCategory> get _categories => _catalog.categories;
   List<Product> get _visible {
-    final result = _products
+    if (_tab != 1) return _catalog.visible;
+    final result = _shop.favoriteProducts
         .where(
           (p) =>
-              (_tab != 1 || _favorites.contains(p.id)) &&
-              (_category == null || p.category == _category) &&
-              (_maxPrice == null || p.price <= _maxPrice!) &&
-              p.name.toLowerCase().contains(_query.toLowerCase()),
+              p.title.toLowerCase().contains(_query.toLowerCase()) &&
+              (_maxPrice == null || p.effectivePrice <= _maxPrice!),
         )
         .toList();
     if (_sort == 1) result.sort((a, b) => a.price.compareTo(b.price));
     if (_sort == 2) result.sort((a, b) => b.price.compareTo(a.price));
-    if (_sort == 3) result.sort((a, b) => a.name.compareTo(b.name));
+    if (_sort == 3) result.sort((a, b) => a.title.compareTo(b.title));
     return result;
   }
 
   @override
   Widget build(BuildContext context) {
     final visible = _visible;
-    final featured = _products.where((p) => p.featured).toList();
+    final featured = _products.take(6).toList();
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 78,
@@ -152,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _tab == 2
                 ? CartScreen(
                     shop: _shop,
+                    repository: widget.repository,
                     embedded: true,
                     onContinueShopping: _continueShopping,
                     onProductTap: _openProduct,
@@ -195,8 +195,24 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(height: 25),
                               TextField(
                                 key: ValueKey(_tab),
-                                onChanged: (value) =>
-                                    setState(() => _query = value),
+                                onChanged: (value) {
+                                  setState(() => _query = value);
+                                  if (_tab == 0) _catalog.search(value);
+                                },
+                                onSubmitted: (value) {
+                                  if (_tab == 0) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => SearchScreen(
+                                          repository: widget.repository,
+                                          shop: _shop,
+                                          initialQuery: value,
+                                          onContinueShopping: _continueShopping,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
                                 decoration: const InputDecoration(
                                   hintText: 'Search the collection',
                                   prefixIcon: Icon(Icons.search_rounded),
@@ -213,8 +229,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                   trailing: '${_categories.length} categories',
                                 ),
                                 const SizedBox(height: 12),
-                                if (_loading)
+                                if (_catalog.categoriesLoading)
                                   const _Skeleton(height: 42)
+                                else if (_catalog.categoriesError != null)
+                                  TextButton.icon(
+                                    onPressed: _catalog.loadCategories,
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text(
+                                      'Could not load categories. Retry',
+                                    ),
+                                  )
                                 else
                                   SingleChildScrollView(
                                     scrollDirection: Axis.horizontal,
@@ -222,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       children: [
                                         _chip('All', null),
                                         for (final category in _categories)
-                                          _chip(category, category),
+                                          _chip(category.name, category.slug),
                                       ],
                                     ),
                                   ),
@@ -288,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 28),
                                 _heading(
-                                  'Featured products',
+                                  'Discover products',
                                   trailing: 'THE SPOTLIGHT',
                                 ),
                                 const SizedBox(height: 14),
@@ -312,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 18),
                                     child: Text(
-                                      'No featured products available yet.',
+                                      'No products to discover yet.',
                                       style: TextStyle(
                                         color: Color(0xFF94A3BF),
                                       ),
@@ -349,8 +373,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   PopupMenuButton<int>(
                                     tooltip: 'Sort products',
                                     initialValue: _sort,
-                                    onSelected: (value) =>
-                                        setState(() => _sort = value),
+                                    onSelected: (value) {
+                                      setState(() => _sort = value);
+                                      _load();
+                                    },
                                     itemBuilder: (_) => const [
                                       PopupMenuItem(
                                         value: 0,
@@ -358,11 +384,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       PopupMenuItem(
                                         value: 1,
-                                        child: Text('Price: low to high'),
+                                        child: Text('List price: low to high'),
                                       ),
                                       PopupMenuItem(
                                         value: 2,
-                                        child: Text('Price: high to low'),
+                                        child: Text('List price: high to low'),
                                       ),
                                       PopupMenuItem(
                                         value: 3,
@@ -388,6 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         _category = null;
                                         _maxPrice = null;
                                         _sort = 0;
+                                        _load();
                                       }),
                                       child: const Text('Reset'),
                                     ),
@@ -410,12 +437,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           SliverToBoxAdapter(
                             child: _message(
                               Icons.cloud_off_rounded,
-                              _error is ApiNotConfigured
-                                  ? 'The collection is coming soon'
-                                  : 'Couldn’t load the collection',
-                              _error is ApiNotConfigured
-                                  ? 'Our collection will appear here once the store is connected.'
-                                  : 'Please check your connection and try again.',
+                              'Could not load the collection',
+                              'Please check your connection and try again.',
                               retry: true,
                             ),
                           )
@@ -448,6 +471,27 @@ class _HomeScreenState extends State<HomeScreen> {
                               itemBuilder: (_, index) => _card(visible[index]),
                             ),
                           ),
+                        if (_tab == 0 &&
+                            !_loading &&
+                            _error == null &&
+                            _catalog.hasMore)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(22),
+                              child: OutlinedButton(
+                                onPressed: _catalog.loadingMore
+                                    ? null
+                                    : _catalog.loadMore,
+                                child: Text(
+                                  _catalog.loadingMore
+                                      ? 'Loading...'
+                                      : _catalog.moreError != null
+                                      ? 'Could not load more. Retry'
+                                      : 'Load more products',
+                                ),
+                              ),
+                            ),
+                          ),
                         const SliverToBoxAdapter(child: SizedBox(height: 28)),
                       ],
                     ),
@@ -457,12 +501,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        onDestinationSelected: (index) => setState(() {
-          _tab = index;
-          _category = null;
-          _query = '';
-          _maxPrice = null;
-        }),
+        onDestinationSelected: (index) {
+          setState(() {
+            _tab = index;
+            _category = null;
+            _query = '';
+            _maxPrice = null;
+          });
+          if (index == 0) _load();
+        },
         backgroundColor: const Color(0xFF0D172B),
         indicatorColor: const Color(0xFF244CC4),
         destinations: const [
@@ -525,129 +572,33 @@ class _HomeScreenState extends State<HomeScreen> {
     child: ChoiceChip(
       label: Text(label),
       selected: _category == category,
-      onSelected: (_) => setState(() => _category = category),
+      onSelected: (_) {
+        if (category == null) {
+          _category = null;
+          _load();
+          return;
+        }
+        final selected = _categories.firstWhere((c) => c.slug == category);
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CategoryScreen(
+              repository: widget.repository,
+              shop: _shop,
+              category: selected,
+              onContinueShopping: _continueShopping,
+            ),
+          ),
+        );
+      },
       showCheckmark: false,
     ),
   );
 
-  Widget _card(Product product) => Material(
-    clipBehavior: Clip.antiAlias,
-    color: const Color(0xFF111D34),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(19),
-      side: const BorderSide(color: Color(0xFF20304B)),
-    ),
-    child: InkWell(
-      onTap: () => _openProduct(product),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Container(
-                  color: const Color(0xFF19253B),
-                  child: product.imageUrl == null
-                      ? const Icon(
-                          Icons.image_not_supported_outlined,
-                          color: Color(0xFF8392AE),
-                        )
-                      : Image.network(
-                          product.imageUrl!,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (_, child, progress) =>
-                              progress == null
-                              ? child
-                              : const _Skeleton(height: 160),
-                          errorBuilder: (_, error, stack) => const Icon(
-                            Icons.broken_image_outlined,
-                            color: Color(0xFF8392AE),
-                          ),
-                        ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton.filledTonal(
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xDD0D172B),
-                    ),
-                    tooltip: _favorites.contains(product.id)
-                        ? 'Remove from wishlist'
-                        : 'Add to wishlist',
-                    onPressed: () => _shop.toggleFavorite(product.id),
-                    icon: Icon(
-                      _favorites.contains(product.id)
-                          ? Icons.favorite
-                          : Icons.favorite_border,
-                      size: 20,
-                      color: _favorites.contains(product.id)
-                          ? const Color(0xFF85AAFF)
-                          : Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (product.category != null)
-                  Text(
-                    product.category!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF94A3BF),
-                    ),
-                  ),
-                const SizedBox(height: 4),
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        product.formattedPrice,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF85AAFF),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 32,
-                      width: 32,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        tooltip: 'Add to cart',
-                        onPressed: () => _openProduct(product),
-                        icon: const Icon(Icons.add_circle_outline, size: 22),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
+  Widget _card(Product product) => ProductCard(
+    product: product,
+    favorite: _favorites.contains(product.id),
+    onFavorite: () => _shop.toggleFavorite(product.id, product: product),
+    onTap: () => _openProduct(product),
   );
 
   Widget _message(
@@ -692,18 +643,24 @@ class _HomeScreenState extends State<HomeScreen> {
   );
 
   Future<void> _filter() async {
-    final ceiling = _products.fold<double>(
-      0,
-      (value, p) => p.price > value ? p.price : value,
+    final input = TextEditingController(
+      text: _maxPrice?.toStringAsFixed(2) ?? '',
     );
-    var selected = _maxPrice ?? ceiling;
+    final form = GlobalKey<FormState>();
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, update) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            12,
+            24,
+            24 + MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: Form(
+            key: form,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -712,22 +669,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Make it your collection',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(height: 24),
-                Text('Maximum price: ${selected.toStringAsFixed(2)}'),
-                Slider(
-                  value: selected,
-                  max: ceiling > 0 ? ceiling : 1,
-                  onChanged: (value) => update(() => selected = value),
+                const SizedBox(height: 22),
+                TextFormField(
+                  controller: input,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Maximum discounted price',
+                    hintText: 'Leave blank for any price',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) return null;
+                    final price = double.tryParse(value);
+                    return price == null || !price.isFinite || price < 0
+                        ? 'Enter a valid price'
+                        : null;
+                  },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () {
-                      setState(
-                        () => _maxPrice = selected >= ceiling ? null : selected,
-                      );
-                      Navigator.pop(context);
+                      if (!form.currentState!.validate()) return;
+                      setState(() => _maxPrice = double.tryParse(input.text));
+                      Navigator.pop(sheetContext);
+                      if (_tab == 0) _load();
                     },
                     child: const Text('Show results'),
                   ),
@@ -738,6 +706,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+    input.dispose();
   }
 }
 

@@ -1,210 +1,153 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:velora/data/product_api_service.dart';
 import 'package:velora/data/product_repository.dart';
-import 'package:velora/main.dart';
 import 'package:velora/models/product.dart';
-import 'package:velora/screens/product_details_screen.dart';
-import 'package:velora/state/shop_state.dart';
+import 'package:velora/state/product_provider.dart';
 
-class DetailsRepository implements ProductRepository {
-  DetailsRepository(this.fetch);
-  final Future<List<Product>> Function() fetch;
-  @override
-  Future<List<Product>> fetchProducts() => fetch();
-}
-
-// Test fixtures only; the app never provides a fallback catalog.
-Product fixture() => Product.fromJson({
-  'id': 'api-product',
-  'name': 'API product title',
-  'price': 30,
-  'description': 'Description from response',
-  'category': 'API category',
-  'currency': 'USD',
-  'stock': 4,
-  'rating': {'rate': 4.7, 'count': 8},
-  'variations': [
-    {'id': 'variant-id', 'name': 'API variation', 'price': 42, 'stock': 2},
-    {'id': 'sold-id', 'name': 'Sold variation', 'stock': 0},
-  ],
-});
-
-Widget details(ProductRepository repository, ShopState shop) => MaterialApp(
-  theme: ThemeData.dark(useMaterial3: true),
-  home: ProductDetailsScreen(
-    productId: 'api-product',
-    repository: repository,
-    shop: shop,
-  ),
-);
+const live = bool.fromEnvironment('RUN_LIVE_API_TESTS');
 
 void main() {
-  test('Maps optional API fields and enforces variant and aggregate stock', () {
-    final product = fixture();
-    final shop = ShopState();
-    expect(product.rating, 4.7);
-    expect(product.reviewCount, 8);
-    expect(shop.add(product, null, 1), isFalse);
-    expect(shop.add(product, product.variations.last, 1), isFalse);
-    expect(shop.add(product, product.variations.first, 2), isTrue);
-    expect(shop.add(product, product.variations.first, 1), isFalse);
-    final line = shop.lines.single;
-    expect(line.productId, 'api-product');
-    expect(line.variation!.id, 'variant-id');
-    expect(line.unitPrice, 42);
-    expect(line.quantity, 2);
-    final unknown = Product.fromJson({
-      'id': 'unknown',
-      'name': 'Unknown',
-      'price': 3,
-    });
-    expect(shop.add(unknown, null, 1), isFalse);
-    final other = ProductVariation(id: 'other', name: 'Other', stock: 8);
-    final capped = Product(
-      id: product.id,
-      name: product.name,
-      price: 30,
-      stock: 3,
-      variations: [other],
-    );
-    expect(shop.remaining(capped, other), 1);
-    expect(shop.add(capped, other, 2), isFalse);
-    shop.dispose();
-  });
-
-  testWidgets(
-    'Loads API details, selects variant price and adds bounded quantity',
-    (tester) async {
-      tester.view.physicalSize = const Size(360, 820);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final shop = ShopState();
-      final pending = Completer<List<Product>>();
-      await tester.pumpWidget(
-        details(DetailsRepository(() => pending.future), shop),
+  test(
+    'Real DummyJSON endpoints, field parsing, images, pagination and sorting',
+    () async {
+      final service = ProductApiService();
+      addTearDown(service.close);
+      // Every product and expected field below is obtained from a live response.
+      final response = await http.get(Uri.https('dummyjson.com', '/products'));
+      expect(response.statusCode, 200);
+      final raw = jsonDecode(response.body) as Map<String, dynamic>;
+      final page = ProductPage.fromJson(raw);
+      expect(page.products, isNotEmpty);
+      final firstJson = (raw['products'] as List).first as Map<String, dynamic>;
+      final first = page.products.first;
+      expect(first.id, firstJson['id']);
+      expect(first.title, firstJson['title']);
+      expect(first.description, firstJson['description']);
+      expect(first.price, (firstJson['price'] as num).toDouble());
+      expect(
+        first.discountPercentage,
+        (firstJson['discountPercentage'] as num).toDouble(),
       );
-      expect(find.bySemanticsLabel('Loading product'), findsOneWidget);
-      pending.complete([fixture()]);
-      await tester.pumpAndSettle();
-      expect(find.text('API product title'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('API variation'), 220);
-      await tester.tap(find.text('API variation'));
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.byTooltip('Increase quantity'), 150);
-      await tester.tap(find.byTooltip('Increase quantity'));
-      await tester.pump();
-      final increase = tester.widget<IconButton>(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is IconButton && widget.tooltip == 'Increase quantity',
-        ),
+      expect(first.stock, firstJson['stock']);
+      expect(first.rating, (firstJson['rating'] as num).toDouble());
+      expect(first.brand, firstJson['brand']);
+      expect(first.category, firstJson['category']);
+      expect(first.thumbnail, firstJson['thumbnail']);
+      expect(first.images, firstJson['images']);
+      expect(first.availabilityStatus, firstJson['availabilityStatus']);
+      final reviews = firstJson['reviews'] as List;
+      expect(first.reviews.length, reviews.length);
+      if (reviews.isNotEmpty) {
+        expect(first.reviews.first.comment, reviews.first['comment']);
+        expect(first.reviews.first.reviewerName, reviews.first['reviewerName']);
+        expect(first.reviews.first.rating, reviews.first['rating']);
+      }
+      expect(first.variations, isEmpty);
+      expect(
+        first.effectivePrice,
+        (first.price * (1 - first.discountPercentage! / 100) * 100).round() /
+            100,
       );
-      expect(increase.onPressed, isNull);
-      await tester.scrollUntilVisible(find.text('Add to Cart'), 160);
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -120),
+      final detail = await service.getProduct(first.id);
+      expect(detail!.id, first.id);
+      final limited = await service.getProducts(limit: 20, skip: 0);
+      final next = await service.getProducts(
+        limit: 20,
+        skip: limited.products.length,
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Add to Cart'));
-      await tester.pumpAndSettle();
-      expect(shop.lines.single.unitPrice, 42);
-      expect(shop.lines.single.quantity, 2);
-      expect(shop.lines.single.variation!.id, 'variant-id');
-      expect(find.text('Available quantity is in your bag'), findsOneWidget);
-      await tester.tap(find.byTooltip('Add to wishlist'));
-      await tester.pump();
-      expect(shop.favorites, contains('api-product'));
-      expect(tester.takeException(), isNull);
+      expect(limited.products.length, 20);
+      expect(next.skip, limited.products.length);
+      expect(
+        limited.products
+            .map((p) => p.id)
+            .toSet()
+            .intersection(next.products.map((p) => p.id).toSet()),
+        isEmpty,
+      );
+      final query = first.title.split(' ').first;
+      final search = await service.getProducts(query: query, limit: 0);
+      expect(search.products.map((p) => p.id), contains(first.id));
+      final categories = await service.getCategories();
+      expect(categories, isNotEmpty);
+      final category = categories.firstWhere((c) => c.slug == first.category);
+      final categorized = await service.getProducts(category: category.slug);
+      expect(categorized.products, isNotEmpty);
+      expect(
+        categorized.products.every((p) => p.category == category.slug),
+        isTrue,
+      );
+      final ascending = await service.getProducts(
+        sortBy: 'price',
+        order: 'asc',
+      );
+      expect(ascending.products, isNotEmpty);
+      for (var i = 1; i < ascending.products.length; i++) {
+        expect(
+          ascending.products[i].price >= ascending.products[i - 1].price,
+          isTrue,
+        );
+      }
+      final descending = await service.getProducts(
+        sortBy: 'price',
+        order: 'desc',
+      );
+      expect(
+        descending.products.first.price >= ascending.products.first.price,
+        isTrue,
+      );
+      for (final url in {first.thumbnail!, first.images.first}) {
+        final image = await http.get(Uri.parse(url));
+        expect(image.statusCode, 200);
+        expect(image.headers['content-type'], startsWith('image/'));
+        expect(image.bodyBytes, isNotEmpty);
+      }
+      final all = await service.getProducts(limit: 0);
+      final highestId = all.products
+          .map((p) => p.id)
+          .reduce((a, b) => a > b ? a : b);
+      expect(await service.getProduct(highestId + 1), isNull);
+      // Parse every live record, including products with omitted optional fields.
+      expect(all.products.length, all.total);
+      expect(all.products.every((p) => p.effectivePrice >= 0), isTrue);
     },
+    skip: !live,
+    timeout: const Timeout(Duration(minutes: 3)),
   );
 
-  testWidgets('Details retries errors and shows missing product state', (
-    tester,
-  ) async {
-    var attempts = 0;
-    await tester.pumpWidget(
-      details(
-        DetailsRepository(() async {
-          if (++attempts == 1) throw Exception('Offline');
-          return [];
-        }),
-        ShopState(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Could not load this product'), findsOneWidget);
-    await tester.tap(find.text('Retry'));
-    await tester.pumpAndSettle();
-    expect(find.text('Product unavailable'), findsOneWidget);
-    expect(attempts, 2);
-  });
-
-  testWidgets(
-    'Home card opens details and related products navigate by API ID',
-    (tester) async {
-      tester.view.physicalSize = const Size(1200, 1000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final repository = DetailsRepository(
-        () async => [
-          fixture(),
-          const Product(
-            id: 'related-id',
-            name: 'Related response title',
-            price: 5,
-            category: 'API category',
-            stock: 1,
-          ),
-        ],
+  test(
+    'Live catalog provider loads, searches, categories and paginates',
+    () async {
+      final repository = ApiProductRepository();
+      final provider = ProductProvider(repository);
+      addTearDown(repository.dispose);
+      addTearDown(provider.dispose);
+      await provider.initialize();
+      expect(provider.error, isNull);
+      expect(provider.categoriesError, isNull);
+      expect(provider.products.length, 20);
+      final first = provider.products.first;
+      await provider.loadMore();
+      expect(provider.products.length, greaterThan(20));
+      provider.query = first.title;
+      await provider.refresh();
+      expect(provider.visible.map((p) => p.id), contains(first.id));
+      provider.query = '';
+      provider.category = first.category;
+      provider.maxPrice = first.effectivePrice;
+      await provider.refresh();
+      expect(
+        provider.visible.every(
+          (p) =>
+              p.category == first.category &&
+              p.effectivePrice <= first.effectivePrice,
+        ),
+        isTrue,
       );
-      await tester.pumpWidget(MyApp(repository: repository));
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('API product title'),
-        220,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('API product title'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ProductDetailsScreen), findsOneWidget);
-      expect(find.text('Description from response'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('Related response title'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('Related response title'));
-      await tester.pumpAndSettle();
-      final screen = tester.widget<ProductDetailsScreen>(
-        find.byType(ProductDetailsScreen),
-      );
-      expect(screen.productId, 'related-id');
-      await tester.tap(find.text('Add to Cart'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Open cart'));
-      await tester.pumpAndSettle();
-      expect(find.text('Order summary'), findsOneWidget);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Cart'));
-      await tester.pumpAndSettle();
-      expect(find.text('Related response title'), findsOneWidget);
-      expect(find.bySemanticsLabel(RegExp('Quantity: 1')), findsOneWidget);
-      expect(find.text('5.00'), findsWidgets);
-      await tester.tap(find.text('Continue Shopping'));
-      await tester.pumpAndSettle();
-      expect(find.text('Find your next\nfavorite thing.'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      expect(provider.hasMore, isFalse);
     },
+    skip: !live,
+    timeout: const Timeout(Duration(minutes: 2)),
   );
 }

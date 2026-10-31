@@ -1,4 +1,4 @@
-﻿# Velora
+# Velora
 
 Premium Flutter shopping UI connected directly to the [DummyJSON Products API](https://dummyjson.com/docs/products).
 
@@ -58,7 +58,7 @@ DummyJSON has no standard selectable sizes/colors/variant inventory. No variants
 
 ## API limitations
 
-DummyJSON is a demonstration API. This app does not treat it as real commercial checkout, stock reservation, payment, or persistent order processing. Checkout explicitly shows that ordering is unavailable. Shipping costs are not inferred from shipping-description text; a future real quote service can supply `ShopState.setShippingQuote`. Unknown shipping is shown as unquoted and excluded from the estimated total. Cart and wishlist are in memory and reset when the app restarts. Profile/account services remain unconnected.
+DummyJSON is a demonstration API. This app does not treat it as real commercial checkout, stock reservation, payment, or persistent order processing. Checkout opens a read-only `CheckoutPreviewScreen` showing actual session-cart products, quantities, subtotals, and estimated totals excluding unknown shipping. The preview displays: "Shipping charges will be calculated when a shipping provider is connected." and "Payment gateway integration is not available in this demo." It makes no payment, quote, or order requests, never claims an order was placed, and leaves the bag unchanged. There is no payment/order submission button or checkout callback bypass. Shipping costs are not inferred from shipping-description text; a future real quote service can supply `ShopState.setShippingQuote`. Unknown shipping is shown as unquoted and excluded from the estimated total. Cart and wishlist are in memory and reset when the app restarts. Profile/account services remain unconnected.
 
 ## Verification
 
@@ -69,4 +69,4 @@ flutter test --dart-define=RUN_LIVE_API_TESTS=true
 flutter build web --release
 ```
 
-The default tests exercise cart invariants and empty-cart layouts without fabricating API responses. The opt-in live tests require internet access and call real endpoints. They validate field mapping (including optional fields/reviews), real image downloads, search, categories, pagination, sorting, discounted prices, stock limits, cart calculations, provider behavior, and the Home -> details -> cart -> empty -> Home/wishlist journey. Live tests may fail when the external service or image CDN is unavailable; they do not substitute local products.
+The default tests exercise cart invariants and empty-cart layouts without fabricating API responses. The opt-in live tests require internet access and call real endpoints. They validate field mapping (including optional fields/reviews), real image downloads, search, categories, pagination, sorting, discounted prices, stock limits, cart calculations, provider behavior, and the Home -> details -> cart -> checkout preview -> empty -> Home/wishlist journey, including quantity controls, cart badge updates, favorite synchronization/removal, limitation messages, and phone/wide layouts. Live tests may fail when the external service or image CDN is unavailable; they do not substitute local products.

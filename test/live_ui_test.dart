@@ -9,7 +9,11 @@ import 'package:velora/screens/product_details_screen.dart';
 import 'package:velora/widgets/product_card.dart';
 
 // Allow actual HTTP requests rather than Flutter's default test HTTP rejection.
-class LiveNetwork extends HttpOverrides {}
+class LiveNetwork extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) =>
+      super.createHttpClient(context)..idleTimeout = Duration.zero;
+}
 
 const live = bool.fromEnvironment('RUN_LIVE_API_TESTS');
 
@@ -40,14 +44,53 @@ void main() {
           tester,
           () => find.byType(ChoiceChip).evaluate().isNotEmpty,
         );
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -360));
-        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('THE VELORA EDIT'), findsNothing);
+        expect(
+          tester
+              .widget<TextField>(find.byType(TextField))
+              .decoration!
+              .suffixIcon,
+          isNull,
+        );
+        final categoryChip = tester
+            .widgetList<ChoiceChip>(find.byType(ChoiceChip))
+            .firstWhere((chip) => (chip.label as Text).data != 'All');
+        final categoryName = (categoryChip.label as Text).data!;
+        final categorySlug = (categoryChip.key as ValueKey<String>).value;
+        await tester.tap(find.widgetWithText(ChoiceChip, categoryName));
+        await tester.pump();
+        expect(
+          tester
+              .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, categoryName))
+              .selected,
+          isTrue,
+        );
+        await waitFor(
+          tester,
+          () => find.byType(ProductCard).evaluate().isNotEmpty,
+        );
+        expect(
+          tester
+              .widgetList<ProductCard>(find.byType(ProductCard))
+              .every((card) => card.product.category == categorySlug),
+          isTrue,
+        );
+        await tester.tap(find.widgetWithText(ChoiceChip, 'All'));
+        await tester.pump();
+        expect(
+          tester
+              .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'All'))
+              .selected,
+          isTrue,
+        );
         await waitFor(
           tester,
           () => find.byType(ProductCard).evaluate().isNotEmpty,
         );
         final card = tester.widget<ProductCard>(find.byType(ProductCard).first);
         final product = card.product;
+        await tester.ensureVisible(find.byType(ProductCard).first);
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(find.byType(ProductCard).first);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 500));
@@ -124,6 +167,7 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 500));
           expect(find.byType(CheckoutPreviewScreen), findsOneWidget);
+          expect(find.text('DEMONSTRATION ONLY'), findsNothing);
           expect(
             find.text(CheckoutPreviewScreen.shippingMessage),
             findsOneWidget,

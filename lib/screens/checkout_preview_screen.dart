@@ -30,43 +30,6 @@ class CheckoutPreviewScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF162B54),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFF355A9A)),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.info_outline, color: Color(0xFF85AAFF)),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'DEMONSTRATION ONLY',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF85AAFF),
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Review your bag. Payment and commercial order processing are not connected. No order will be placed.',
-                                style: TextStyle(height: 1.5),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 26),
                   const Text(
                     'Review your bag.',
                     style: TextStyle(

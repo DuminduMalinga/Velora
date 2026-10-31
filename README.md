@@ -40,7 +40,7 @@ flutter run --dart-define=API_BASE_URL=https://your-compatible-api.example
 | Price sorting | `GET /products?sortBy=price&order=asc&limit=20&skip=0` (also descending) |
 | Title sorting | `GET /products?sortBy=title&order=asc&limit=20&skip=0` |
 
-Home searches as you type; submit the search field to open the dedicated Search screen. Category chips open Category screens using API-provided slugs and names. Load More appends real pages; errors never turn into sample products. Related products come from the current API category and exclude the selected product.
+Home searches as you type; submit the search field to open the dedicated Search screen. Category chips filter Home in place using API-provided slugs and names, highlight the selected category, and reset through All. The reusable dedicated Category screen remains available. Load More appends real pages; errors never turn into sample products. Related products come from the current API category and exclude the selected product.
 
 DummyJSON does not document combined category+search or a maximum-price parameter. For those combinations, the provider fetches the relevant API result set using `limit=0`, then filters locally across that complete set. Maximum price compares discounted prices. Sort options explicitly say **List price**, because DummyJSON sorts its `price` field before discount. This distinction avoids claiming server sorting by a computed discount price.
 

@@ -216,10 +216,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 decoration: const InputDecoration(
                                   hintText: 'Search the collection',
                                   prefixIcon: Icon(Icons.search_rounded),
-                                  suffixIcon: Icon(
-                                    Icons.tune_rounded,
-                                    size: 20,
-                                  ),
                                 ),
                               ),
                               const SizedBox(height: 24),
@@ -251,66 +247,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                 const SizedBox(height: 24),
-                                Container(
-                                  padding: const EdgeInsets.all(24),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF244CC4),
-                                        Color(0xFF142A63),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(24),
-                                    border: Border.all(
-                                      color: const Color(0xFF4266C5),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'THE VELORA EDIT',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                letterSpacing: 2.5,
-                                                color: Color(0xFFBBD0FF),
-                                              ),
-                                            ),
-                                            SizedBox(height: 12),
-                                            Text(
-                                              'Discover something\nextraordinary.',
-                                              style: TextStyle(
-                                                fontSize: 25,
-                                                height: 1.2,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                            SizedBox(height: 12),
-                                            Text(
-                                              'Explore the collection below',
-                                              style: TextStyle(
-                                                color: Color(0xFFBBD0FF),
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const Icon(
-                                        Icons.auto_awesome_outlined,
-                                        color: Color(0xFFA8C1FF),
-                                        size: 56,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 28),
                                 _heading(
                                   'Discover products',
                                   trailing: 'THE SPOTLIGHT',
@@ -570,25 +506,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _chip(String label, String? category) => Padding(
     padding: const EdgeInsets.only(right: 8),
     child: ChoiceChip(
+      key: ValueKey(category ?? 'all-products'),
       label: Text(label),
       selected: _category == category,
       onSelected: (_) {
-        if (category == null) {
-          _category = null;
-          _load();
-          return;
-        }
-        final selected = _categories.firstWhere((c) => c.slug == category);
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CategoryScreen(
-              repository: widget.repository,
-              shop: _shop,
-              category: selected,
-              onContinueShopping: _continueShopping,
-            ),
-          ),
-        );
+        setState(() {
+          _category = category;
+          _maxPrice = null;
+        });
+        _load();
       },
       showCheckmark: false,
     ),

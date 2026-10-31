@@ -187,6 +187,11 @@ void main() {
       expect(screen.productId, 'related-id');
       await tester.tap(find.text('Add to Cart'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Open cart'));
+      await tester.pumpAndSettle();
+      expect(find.text('Order summary'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       await tester.pageBack();
       await tester.pumpAndSettle();
       await tester.pageBack();
@@ -194,8 +199,11 @@ void main() {
       await tester.tap(find.text('Cart'));
       await tester.pumpAndSettle();
       expect(find.text('Related response title'), findsOneWidget);
-      expect(find.text('Quantity: 1'), findsOneWidget);
-      expect(find.text('5.00'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Quantity: 1')), findsOneWidget);
+      expect(find.text('5.00'), findsWidgets);
+      await tester.tap(find.text('Continue Shopping'));
+      await tester.pumpAndSettle();
+      expect(find.text('Find your next\nfavorite thing.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

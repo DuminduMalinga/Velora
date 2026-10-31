@@ -3,6 +3,7 @@ import '../data/product_repository.dart';
 import '../models/product.dart';
 import '../state/shop_state.dart';
 import 'product_details_screen.dart';
+import 'cart_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.repository});
@@ -33,6 +34,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _shopChanged() => setState(() {});
 
+  void _continueShopping() => setState(() {
+    _tab = 0;
+    _query = '';
+    _category = null;
+    _maxPrice = null;
+  });
+
   @override
   void dispose() {
     _shop.removeListener(_shopChanged);
@@ -47,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
           productId: product.id,
           repository: widget.repository,
           shop: _shop,
+          onContinueShopping: _continueShopping,
         ),
       ),
     );
@@ -74,14 +83,10 @@ class _HomeScreenState extends State<HomeScreen> {
       .toSet()
       .toList();
   List<Product> get _visible {
-    final source = _tab == 2
-        ? {for (final line in _shop.lines) line.productId: line.product}.values
-        : _products;
-    final result = source
+    final result = _products
         .where(
           (p) =>
               (_tab != 1 || _favorites.contains(p.id)) &&
-              (_tab != 2 || _cart.containsKey(p.id)) &&
               (_category == null || p.category == _category) &&
               (_maxPrice == null || p.price <= _maxPrice!) &&
               p.name.toLowerCase().contains(_query.toLowerCase()),
@@ -144,7 +149,14 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1000),
-            child: _tab == 3
+            child: _tab == 2
+                ? CartScreen(
+                    shop: _shop,
+                    embedded: true,
+                    onContinueShopping: _continueShopping,
+                    onProductTap: _openProduct,
+                  )
+                : _tab == 3
                 ? _profile()
                 : RefreshIndicator(
                     onRefresh: _load,
@@ -436,16 +448,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               itemBuilder: (_, index) => _card(visible[index]),
                             ),
                           ),
-                        if (_tab == 2 && visible.isNotEmpty)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.all(22),
-                              child: const Text(
-                                'Your bag is saved for this session. Checkout is not connected.',
-                                style: TextStyle(color: Color(0xFF94A3BF)),
-                              ),
-                            ),
-                          ),
                         const SliverToBoxAdapter(child: SizedBox(height: 28)),
                       ],
                     ),
@@ -619,20 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        _tab == 2
-                            ? product.formatPrice(
-                                _shop.lines
-                                    .where(
-                                      (line) => line.productId == product.id,
-                                    )
-                                    .fold<double>(
-                                      0,
-                                      (total, line) =>
-                                          total +
-                                          line.unitPrice * line.quantity,
-                                    ),
-                              )
-                            : product.formattedPrice,
+                        product.formattedPrice,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -646,45 +635,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: 32,
                       child: IconButton(
                         padding: EdgeInsets.zero,
-                        tooltip: _tab == 2 ? 'Remove from cart' : 'Add to cart',
-                        onPressed: () {
-                          if (_tab == 2) {
-                            _shop.removeProduct(product.id);
-                          } else {
-                            _openProduct(product);
-                          }
-                        },
-                        icon: Icon(
-                          _tab == 2
-                              ? Icons.remove_circle_outline
-                              : Icons.add_circle_outline,
-                          size: 22,
-                        ),
+                        tooltip: 'Add to cart',
+                        onPressed: () => _openProduct(product),
+                        icon: const Icon(Icons.add_circle_outline, size: 22),
                       ),
                     ),
                   ],
                 ),
-                if (_tab == 2)
-                  Text(
-                    'Quantity: ${_cart[product.id]}',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                if (_tab == 2)
-                  Text(
-                    _shop.lines
-                        .where((line) => line.productId == product.id)
-                        .map(
-                          (line) =>
-                              '${line.variation?.name ?? product.name}: ${line.quantity} x ${product.formatPrice(line.unitPrice)}',
-                        )
-                        .join(' · '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF94A3BF),
-                    ),
-                  ),
               ],
             ),
           ),

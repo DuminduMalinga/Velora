@@ -33,8 +33,15 @@ void main() {
       expect(shop.total, shop.subtotal);
       expect(shop.setQuantity(product.id, null, 0), isFalse);
       expect(shop.setQuantity(product.id, null, product.stock! + 1), isFalse);
+      expect(shop.itemCount, 2);
+      expect(shop.setQuantity(product.id, null, 1), isTrue);
+      expect(shop.itemCount, 1);
+      expect(shop.subtotal, product.effectivePrice);
       shop.toggleFavorite(product.id, product: product);
       expect(shop.favoriteProducts.single.id, product.id);
+      shop.toggleFavorite(product.id);
+      expect(shop.favoriteProducts, isEmpty);
+      expect(shop.favorites, isEmpty);
       await shop.refreshCart(repository);
       expect(shop.lines.single.productId, product.id);
       shop.removeLine(product.id, null);

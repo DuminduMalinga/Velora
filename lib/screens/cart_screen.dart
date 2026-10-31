@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../state/shop_state.dart';
 import '../data/product_repository.dart';
+import 'checkout_preview_screen.dart';
 
 /// Shared by the Home cart tab and standalone routes from product details.
 class CartScreen extends StatelessWidget {
@@ -10,14 +11,12 @@ class CartScreen extends StatelessWidget {
     required this.shop,
     required this.onContinueShopping,
     this.onProductTap,
-    this.onCheckout,
     this.embedded = false,
     this.repository,
   });
   final ShopState shop;
   final VoidCallback onContinueShopping;
   final ValueChanged<Product>? onProductTap;
-  final Future<void> Function()? onCheckout;
   final bool embedded;
   final ProductRepository? repository;
 
@@ -309,7 +308,7 @@ class CartScreen extends StatelessWidget {
                 ),
               ),
               TextButton.icon(
-                onPressed: () => shop.removeLine(product.id, variantId),
+                onPressed: () => _confirmRemoval(context, line),
                 icon: const Icon(Icons.delete_outline, size: 18),
                 label: const Text('Remove'),
                 style: TextButton.styleFrom(
@@ -424,12 +423,19 @@ class CartScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
+          const Text(
+            'Demo checkout preview only. Payment and order processing are not connected.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF94A3BF),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: shop.hasMixedCurrencies
-                  ? null
-                  : () => _checkout(context),
+              onPressed: () => _checkout(context),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 17),
                 shape: RoundedRectangleBorder(
@@ -485,58 +491,35 @@ class CartScreen extends StatelessWidget {
         ),
       );
 
-  Future<void> _checkout(BuildContext context) async {
-    if (onCheckout != null) {
-      try {
-        await onCheckout!();
-      } catch (_) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Checkout could not be opened. Please try again.'),
-            ),
-          );
-        }
-      }
-      return;
-    }
-    await showModalBottomSheet<void>(
+  Future<void> _confirmRemoval(BuildContext context, CartLine line) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(26),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.shopping_bag_outlined,
-                size: 40,
-                color: Color(0xFF85AAFF),
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Checkout is not available yet',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Your bag is ready. Ordering and payment are not available yet. Your items will stay in your bag during this session.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF94A3BF), height: 1.6),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Back to bag'),
-                ),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        icon: const Icon(Icons.delete_outline, color: Color(0xFF85AAFF)),
+        title: const Text('Remove item?'),
+        content: Text('Remove ${line.product.title} from your bag?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
-        ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      shop.removeLine(line.productId, line.variation?.id);
+    }
+  }
+
+  Future<void> _checkout(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CheckoutPreviewScreen(shop: shop),
       ),
     );
   }

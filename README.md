@@ -1,86 +1,171 @@
+﻿<div align="center">
+
 # Velora
 
-Premium Flutter shopping UI connected directly to the [DummyJSON Products API](https://dummyjson.com/docs/products).
+**A modern shopping experience, built with Flutter.**
 
-## Run
+Discover products, curate a wishlist, and manage your shopping bag through a polished interface with light and dark themes.
+
+**Flutter · Dart · Material 3 · DummyJSON**
+
+</div>
+
+---
+
+## Overview
+
+Velora is an API-driven shopping application that combines product discovery with a straightforward cart and profile experience. It uses live catalog data, stock-aware quantity controls, and reusable Flutter components to demonstrate a complete browsing journey from the home screen to a checkout preview.
+
+The application is a demonstration storefront. Payment processing, order placement, and authenticated accounts are not connected.
+
+## Key features
+
+| Feature | Experience |
+| --- | --- |
+| Product discovery | Browse a paginated catalog, search products, and explore categories. |
+| Filters and sorting | Filter by maximum discounted price and sort by list price or title. |
+| Product details | Explore images, descriptions, discounts, availability, reviews, and related products. |
+| Wishlist | Save favorites and access them across catalog pages during the session. |
+| Shopping bag | Manage quantities within available stock and refresh prices and inventory. |
+| Checkout preview | Review selected items, quantities, and estimated totals. |
+| Local profile | Edit contact details and select or remove a profile photo. |
+| Appearance | Switch between system, light, and dark themes. |
+| Preferences | Manage local notification and language preferences. |
+
+Loading indicators, empty states, and retry actions provide feedback throughout the shopping flow.
+
+## Getting started
+
+### Requirements
+
+- A Flutter installation with Dart compatible with `^3.10.4`.
+- A configured device, emulator, or browser supported by your Flutter installation.
+- Internet access for product data and remote images.
+
+### Installation
+
+From the project root:
 
 ```sh
 flutter pub get
 flutter run
 ```
 
-The default API base URL is `https://dummyjson.com`. No product data, image URLs, category lists, or fallback catalog are embedded in Dart files. For a compatible API deployment, override the base URL (not a `/products` URL):
+To launch in Chrome:
+
+```sh
+flutter run -d chrome
+```
+
+### API configuration
+
+The default API base URL is `https://dummyjson.com`. A compatible deployment can be configured at launch:
 
 ```sh
 flutter run --dart-define=API_BASE_URL=https://your-compatible-api.example
 ```
 
-`PRODUCTS_API_URL` is no longer used. The base URL is public configuration, not a place for credentials. Android and macOS have client network permissions; a custom browser API must allow CORS.
+Use the base URL without a `/products` suffix. This value is public application configuration and must not contain credentials. `PRODUCTS_API_URL` is no longer supported.
+
+Android and macOS include network permissions. For browser deployments, a custom API must allow the application's origin through CORS.
 
 ## Architecture
 
-- `lib/main.dart`: app entry point, existing navy/blue theme, repository lifecycle.
-- `lib/models/product.dart`: `ProductModel`, integer product IDs, nullable optional metadata, actual reviews, `ProductCategory`, and `ProductPage`. `Product` is a compatibility typedef; `product_model.dart` exports the models.
-- `lib/data/product_api_service.dart`: HTTP, URI encoding, timeouts, status checking, JSON parsing, and typed API results.
-- `lib/data/product_repository.dart`: injectable `ProductRepository` and HTTP-backed `ApiProductRepository`.
-- `lib/state/product_provider.dart`: Flutter `ChangeNotifier` for catalog/search/category state, debounce, pagination, filtering, sorting, and stale-request protection. No extra state package is required.
-- `lib/state/shop_state.dart`: shared, session-only favorites and cart with API product snapshots, stock limits, totals, and refresh/reconciliation.
-- `lib/screens/`: Home, shared Search/Category catalog screen, product details, and cart. Wishlist remains the existing Home navigation tab.
-- `lib/widgets/product_card.dart`: reusable API product card and image loading/error handling.
+Velora separates data access, application state, and presentation. An injectable repository connects the interface to the product API, while Flutter's `ChangeNotifier` manages catalog state, shopping state, and local preferences.
 
-## API behavior
+```text
+lib/
+├── main.dart                 Application entry point
+├── data/                     API client and product repository
+├── models/                   Product, category, review, and pagination models
+├── screens/                  Catalog, details, cart, checkout, and profile views
+├── services/                 Profile image selection and validation
+├── state/                    Catalog, cart, wishlist, and local settings
+├── theme/                    Shared light and dark themes
+└── widgets/                  Reusable product and profile components
 
-| Feature | Request |
+test/                         Unit, widget, and optional live API tests
+```
+
+| Component | Responsibility |
 | --- | --- |
-| Catalog / next page | `GET /products?limit=20&skip=0` (then subsequent skip values) |
-| Product details | `GET /products/{id}` |
+| `ProductApiService` | HTTP requests, timeouts, status validation, and JSON parsing |
+| `ProductRepository` | Injectable contract for product data access |
+| `ProductProvider` | Search debounce, categories, filters, sorting, pagination, and stale-request protection |
+| `ShopState` | Cart quantities, favorites, totals, and inventory reconciliation |
+| `AppSettings` | Session profile details, photo bytes, preferences, and theme mode |
+| `ProfileImageService` | Gallery selection, image validation, cancellation, and picker error handling |
+| `AppTheme` | Coordinated Material 3 light and dark appearances |
+
+Core dependencies are `http` for networking and `image_picker` for profile photo selection.
+
+## Data and shopping behavior
+
+### Catalog integration
+
+Catalog content, category names, product images, and reviews come from the API. Failed requests display an error and retry action rather than a fallback catalog.
+
+| Operation | Endpoint |
+| --- | --- |
+| Browse products | `GET /products?limit=20&skip=0` |
+| View a product | `GET /products/{id}` |
 | Search | `GET /products/search?q={query}&limit=20&skip=0` |
-| Categories | `GET /products/categories` |
-| Category catalog | `GET /products/category/{slug}?limit=20&skip=0` |
-| Price sorting | `GET /products?sortBy=price&order=asc&limit=20&skip=0` (also descending) |
-| Title sorting | `GET /products?sortBy=title&order=asc&limit=20&skip=0` |
+| List categories | `GET /products/categories` |
+| Browse a category | `GET /products/category/{slug}?limit=20&skip=0` |
+| Sort products | `GET /products?sortBy=price&order=asc&limit=20&skip=0` |
 
-Home searches as you type; submit the search field to open the dedicated Search screen. Category chips filter Home in place using API-provided slugs and names, highlight the selected category, and reset through All. The reusable dedicated Category screen remains available. Load More appends real pages; errors never turn into sample products. Related products come from the current API category and exclude the selected product.
+Pagination advances `skip`. Sorting supports price or title in ascending or descending order. Product details load independently by ID; related products use the same category and exclude the current item.
 
-DummyJSON does not document combined category+search or a maximum-price parameter. For those combinations, the provider fetches the relevant API result set using `limit=0`, then filters locally across that complete set. Maximum price compares discounted prices. Sort options explicitly say **List price**, because DummyJSON sorts its `price` field before discount. This distinction avoids claiming server sorting by a computed discount price.
+Combined category and search filters, along with maximum-price filtering, operate locally on the relevant complete API result set fetched with `limit=0`. Maximum-price filtering uses discounted prices. Price sorting uses the API's original `price` field and is labeled **List price** in the interface.
 
-Product details fetch the selected integer ID directly, independently of catalog pagination. Missing products show an unavailable state; failed requests have retry actions. Related-product failures have a separate retry state. API reviews display their actual author, rating, and comment; email is parsed but not exposed in the UI.
+### Pricing and stock
 
-## Pricing, inventory, and cart
+Discounted unit prices are rounded to two decimal places. Cart totals use integer cents to remain consistent with displayed amounts.
 
-The model retains the original API `price` and `discountPercentage`. The displayed/cart unit price is rounded to two decimals after applying `price * (1 - discountPercentage / 100)`. Cards and details show the original price and actual discount when present. Cart line subtotals and totals use integer cents to match the two-decimal display.
+Cart quantities respect API stock, including quantities already in the bag. **Refresh prices & stock** reconciles price changes, reduced inventory, sold-out products, and deleted items. A failed refresh preserves the current bag and displays an error.
 
-DummyJSON product responses have no standard currency field; the app does not invent a currency label. A future compatible API can return `currency`, and the existing cart keeps different currencies separate.
+The default product data has no standard currency field, so the application does not assign an assumed currency. Compatible APIs can supply `currency`; the cart keeps different currencies separate. Variant selectors appear only when an API explicitly supplies a `variations` list.
 
-Stock comes from the API. Cart quantities cannot exceed available product stock, including quantities already in the bag. Unknown stock does not become unlimited inventory. **Refresh prices & stock** fetches each cart product again and reconciles changed prices, reduced stock, sold-out products, and deleted IDs. A failed refresh keeps the current bag and shows an error. Favorites retain actual API products across catalog pages.
+### Profile and preferences
 
-DummyJSON has no standard selectable sizes/colors/variant inventory. No variants are synthesized. The existing variant UI stays hidden unless a future compatible API supplies an explicit real `variations` list.
+Profile details and photos remain local to the current application session. Changes are staged until **Save Changes**; navigating back discards unsaved edits. Supplied email and phone values are validated.
 
-## API limitations
+Photo selection uses the native gallery or supported file selector through `image_picker`. The service validates image decoding and size and handles cancellation, denied access, and picker failures. Photos are not uploaded. Native gallery and permission dialogs require manual verification on a physical device.
 
-DummyJSON is a demonstration API. This app does not treat it as real commercial checkout, stock reservation, payment, or persistent order processing. Checkout opens a read-only `CheckoutPreviewScreen` showing actual session-cart products, quantities, subtotals, and estimated totals excluding unknown shipping. The preview displays: "Shipping charges will be calculated when a shipping provider is connected." and "Payment gateway integration is not available in this demo." It makes no payment, quote, or order requests, never claims an order was placed, and leaves the bag unchanged. There is no payment/order submission button or checkout callback bypass. Shipping costs are not inferred from shipping-description text; a future real quote service can supply `ShopState.setShippingQuote`. Unknown shipping is shown as unquoted and excluded from the estimated total. Cart and wishlist are in memory and reset when the app restarts. Profile details are editable for the current session; authenticated account services remain unconnected.
+Theme changes preserve the current cart and wishlist. Notification settings store a preference only. Language selection supports the system default or English; English is the available translation.
 
-## Verification
+## Current scope
+
+| Area | Status |
+| --- | --- |
+| Cart, wishlist, profile, and preferences | Stored in memory; reset when the application session ends |
+| Checkout | Read-only preview that leaves the shopping bag unchanged |
+| Payments and orders | No payment submission, order processing, or stock reservation |
+| Shipping | Unquoted and excluded from estimated totals until a provider is connected |
+| Authentication | No authenticated account session or server-backed logout |
+| Account services | Orders, addresses, contact channels, and official legal documents are unavailable |
+
+The checkout preview explains the missing shipping and payment integrations. A future shipping service can supply a quote through `ShopState.setShippingQuote`.
+
+## Development and validation
+
+Run static analysis and the default tests:
 
 ```sh
 flutter analyze
 flutter test
-flutter test --dart-define=RUN_LIVE_API_TESTS=true
-flutter build web --release
 ```
 
-The default tests exercise cart invariants and empty-cart layouts without fabricating API responses. The opt-in live tests require internet access and call real endpoints. They validate field mapping (including optional fields/reviews), real image downloads, search, categories, pagination, sorting, discounted prices, stock limits, cart calculations, provider behavior, and the Home -> details -> cart -> checkout preview -> empty -> Home/wishlist journey, including quantity controls, cart badge updates, favorite synchronization/removal, limitation messages, and phone/wide layouts. Live tests may fail when the external service or image CDN is unavailable; they do not substitute local products.
+Enable tests that call the live product API:
 
-## Local Profile and preferences
+```sh
+flutter test --dart-define=RUN_LIVE_API_TESTS=true
+```
 
-The existing Profile tab now shows a default avatar and missing-details state until the user supplies their own information. It contains Account overview, Preferences, Support, and Logout sections. My Wishlist and Shopping Cart switch to the existing bottom-navigation tabs and reuse `ShopState`; there is only one bottom navigation bar.
+The test suite covers cart invariants, empty states, local profile settings, navigation, theme changes, profile validation, and controlled photo-picker results. Optional live tests exercise API mapping, images, discovery, pricing, stock, and the shopping journey across phone and wide layouts. Live tests depend on external API and image CDN availability.
 
-`AppSettings` is a `ChangeNotifier` owned by the app root. It holds the local name, email, phone, photo bytes, notification preference, language preference, and theme mode in memory. No authentication session is created, no profile data is uploaded, and settings reset when the app session ends. Notifications only store a preference: no delivery service or notification permission is requested. Language offers system default or English; English is the only available translation. Currency information explains that conversion is unavailable rather than inventing an exchange rate.
+Build a web release:
 
-`EditProfileScreen` stages changes until Save Changes. Back discards unsaved changes. Empty profile fields are allowed; supplied email/phone fields are validated. `ProfileImageService` isolates gallery selection from the UI, validates image decoding/size, and handles cancellation, access denial, and picker failures. `image_picker` opens the native gallery or supported file selector; it does not open the camera. iOS includes a photo-library usage description, macOS includes user-selected read-only file access, and Android uses the system picker without broad storage permissions. Android lost selections can be recovered when Edit Profile opens again. Selected photo bytes remain in memory; the platform picker may use temporary OS-managed files.
-
-`AppTheme` defines coordinated light and dark appearances while preserving the shopping layouts and the existing navy/blue dark palette. Theme switching rebuilds the app's inherited theme without recreating cart/wishlist state. Profile and shopping surfaces/text adapt for light mode. Profile subpages use standard back navigation above the existing tab shell.
-
-Orders, addresses, contact channels, official legal documents, and authenticated logout are explicitly unavailable; their pages explain the limitation. Help Center documents the implemented shopping flow, and About describes the actual demo. No fake users, addresses, or order history are supplied.
-
-Profile tests cover initial missing information, local settings, navigation/menu actions, theme switching, validation, save/discard, photo selection/removal/cancellation/decoding, and denied-access handling. The live shopping tests also verify Profile navigation into the actual wishlist/cart tabs and light mode. Native gallery and permission dialogs still require a manual check on a physical device; automated tests use a controlled picker result.
+```sh
+flutter build web --release
+```

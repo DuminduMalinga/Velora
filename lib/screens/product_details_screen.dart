@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/product_repository.dart';
 import '../models/product.dart';
 import '../state/shop_state.dart';
+import 'cart_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   const ProductDetailsScreen({
@@ -9,10 +10,12 @@ class ProductDetailsScreen extends StatefulWidget {
     required this.productId,
     required this.repository,
     required this.shop,
+    this.onContinueShopping,
   });
   final String productId;
   final ProductRepository repository;
   final ShopState shop;
+  final VoidCallback? onContinueShopping;
   @override
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
 }
@@ -84,6 +87,35 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 color: const Color(0xFF85AAFF),
               ),
             ),
+          IconButton(
+            tooltip: 'Open cart',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CartScreen(
+                  shop: widget.shop,
+                  onContinueShopping: () {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                    widget.onContinueShopping?.call();
+                  },
+                  onProductTap: (product) => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ProductDetailsScreen(
+                        productId: product.id,
+                        repository: widget.repository,
+                        shop: widget.shop,
+                        onContinueShopping: widget.onContinueShopping,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            icon: Badge(
+              isLabelVisible: widget.shop.itemCount > 0,
+              label: Text('${widget.shop.itemCount}'),
+              child: const Icon(Icons.shopping_bag_outlined),
+            ),
+          ),
           const SizedBox(width: 12),
         ],
       ),
@@ -191,6 +223,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                                   productId: related.id,
                                                   repository: widget.repository,
                                                   shop: widget.shop,
+                                                  onContinueShopping:
+                                                      widget.onContinueShopping,
                                                 ),
                                           ),
                                         ),

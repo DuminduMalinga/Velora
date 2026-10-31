@@ -1,3 +1,4 @@
+import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 
@@ -7,10 +8,10 @@ class ProductImage extends StatelessWidget {
   final BoxFit fit;
   @override
   Widget build(BuildContext context) => url == null
-      ? const Center(
+      ? Center(
           child: Icon(
             Icons.image_not_supported_outlined,
-            color: Color(0xFF8392AE),
+            color: context.adaptive(0xFF8392AE),
             semanticLabel: 'No image available',
           ),
         )
@@ -19,17 +20,17 @@ class ProductImage extends StatelessWidget {
           fit: fit,
           loadingBuilder: (_, child, progress) => progress == null
               ? child
-              : const Center(
+              : Center(
                   child: SizedBox(
                     width: 24,
                     height: 24,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
-          errorBuilder: (_, error, stack) => const Center(
+          errorBuilder: (_, error, stack) => Center(
             child: Icon(
               Icons.broken_image_outlined,
-              color: Color(0xFF8392AE),
+              color: context.adaptive(0xFF8392AE),
               semanticLabel: 'Image unavailable',
             ),
           ),
@@ -50,11 +51,11 @@ class ProductCard extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFF111D34),
+    color: context.adaptive(0xFF111D34),
     clipBehavior: Clip.antiAlias,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(19),
-      side: const BorderSide(color: Color(0xFF20304B)),
+      side: BorderSide(color: context.adaptive(0xFF20304B)),
     ),
     child: InkWell(
       onTap: onTap,
@@ -66,8 +67,8 @@ class ProductCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 Container(
-                  color: const Color(0xFF19253B),
-                  padding: const EdgeInsets.all(8),
+                  color: context.adaptive(0xFF19253B),
+                  padding: EdgeInsets.all(8),
                   child: ProductImage(url: product.imageUrl),
                 ),
                 Positioned(
@@ -79,12 +80,12 @@ class ProductCard extends StatelessWidget {
                         : 'Add to wishlist',
                     onPressed: onFavorite,
                     style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xDD0D172B),
+                      backgroundColor: context.adaptive(0xDD0D172B),
                     ),
                     icon: Icon(
                       favorite ? Icons.favorite : Icons.favorite_border,
                       size: 20,
-                      color: const Color(0xFF85AAFF),
+                      color: context.adaptive(0xFF85AAFF),
                     ),
                   ),
                 ),
@@ -92,7 +93,7 @@ class ProductCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -101,22 +102,19 @@ class ProductCard extends StatelessWidget {
                     product.category!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10,
-                      color: Color(0xFF94A3BF),
+                      color: context.adaptive(0xFF94A3BF),
                     ),
                   ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   product.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Row(
                   children: [
                     Expanded(
@@ -124,9 +122,9 @@ class ProductCard extends StatelessWidget {
                         product.formattedPrice,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF85AAFF),
+                          color: context.adaptive(0xFF85AAFF),
                         ),
                       ),
                     ),
@@ -137,7 +135,7 @@ class ProductCard extends StatelessWidget {
                         tooltip: 'View product options',
                         padding: EdgeInsets.zero,
                         onPressed: onTap,
-                        icon: const Icon(Icons.add_circle_outline, size: 22),
+                        icon: Icon(Icons.add_circle_outline, size: 22),
                       ),
                     ),
                   ],
@@ -147,9 +145,9 @@ class ProductCard extends StatelessWidget {
                     '${product.formatPrice(product.price)}  -${product.discountPercentage}%',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10,
-                      color: Color(0xFF94A3BF),
+                      color: context.adaptive(0xFF94A3BF),
                     ),
                   ),
               ],

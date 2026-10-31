@@ -1,3 +1,4 @@
+import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../data/product_repository.dart';
 import '../models/product.dart';
@@ -7,10 +8,20 @@ import 'product_details_screen.dart';
 import 'cart_screen.dart';
 import 'catalog_screen.dart';
 import '../widgets/product_card.dart';
+import '../state/app_settings.dart';
+import '../services/profile_image_service.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.repository});
+  const HomeScreen({
+    super.key,
+    required this.repository,
+    this.settings,
+    this.imageService,
+  });
   final ProductRepository repository;
+  final AppSettings? settings;
+  final ProfileImageService? imageService;
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -19,6 +30,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late final ProductProvider _catalog;
   List<Product> get _products => _catalog.products;
   final ShopState _shop = ShopState();
+  late final AppSettings _settings = widget.settings ?? AppSettings();
+  late final ProfileImageService _imageService =
+      widget.imageService ?? GalleryProfileImageService();
   Map<int, int> get _cart => _shop.quantities;
   Set<int> get _favorites => _shop.favorites;
   bool get _loading => _tab == 1 ? false : _catalog.loading;
@@ -59,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _catalog.dispose();
     _shop.removeListener(_shopChanged);
     _shop.dispose();
+    if (widget.settings == null) _settings.dispose();
     super.dispose();
   }
 
@@ -113,10 +128,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Theme.of(context).colorScheme.primary,
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: const Icon(Icons.diamond_outlined, size: 23),
+              child: Icon(Icons.diamond_outlined, size: 23),
             ),
-            const SizedBox(width: 10),
-            const Text(
+            SizedBox(width: 10),
+            Text(
               'velora',
               style: TextStyle(
                 fontSize: 27,
@@ -137,17 +152,17 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Badge(
               isLabelVisible: _cart.isNotEmpty,
               label: Text('${_cart.values.fold(0, (a, b) => a + b)}'),
-              child: const Icon(Icons.shopping_bag_outlined),
+              child: Icon(Icons.shopping_bag_outlined),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
         ],
       ),
       body: SafeArea(
         top: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1000),
+            constraints: BoxConstraints(maxWidth: 1000),
             child: _tab == 2
                 ? CartScreen(
                     shop: _shop,
@@ -157,14 +172,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     onProductTap: _openProduct,
                   )
                 : _tab == 3
-                ? _profile()
+                ? ProfileScreen(
+                    settings: _settings,
+                    shop: _shop,
+                    imageService: _imageService,
+                    onWishlist: () => _openLocalTab(1),
+                    onCart: () => _openLocalTab(2),
+                  )
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
+                      physics: AlwaysScrollableScrollPhysics(),
                       slivers: [
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(22, 14, 22, 24),
+                          padding: EdgeInsets.fromLTRB(22, 14, 22, 24),
                           sliver: SliverList.list(
                             children: [
                               Text(
@@ -173,26 +194,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                     : _tab == 2
                                     ? 'Your shopping bag.'
                                     : 'Find your next\nfavorite thing.',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 34,
                                   height: 1.15,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: -1.2,
                                 ),
                               ),
-                              const SizedBox(height: 10),
+                              SizedBox(height: 10),
                               Text(
                                 _tab == 0
                                     ? 'A little discovery. A lot to love.'
                                     : _tab == 1
                                     ? 'All the things you have your eye on.'
                                     : 'Your next favorites, ready when you are.',
-                                style: const TextStyle(
-                                  color: Color(0xFF94A3BF),
+                                style: TextStyle(
+                                  color: context.adaptive(0xFF94A3BF),
                                   fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 25),
+                              SizedBox(height: 25),
                               TextField(
                                 key: ValueKey(_tab),
                                 onChanged: (value) {
@@ -213,25 +234,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                     );
                                   }
                                 },
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   hintText: 'Search the collection',
                                   prefixIcon: Icon(Icons.search_rounded),
                                 ),
                               ),
-                              const SizedBox(height: 24),
+                              SizedBox(height: 24),
                               if (_tab == 0) ...[
                                 _heading(
                                   'Browse categories',
                                   trailing: '${_categories.length} categories',
                                 ),
-                                const SizedBox(height: 12),
+                                SizedBox(height: 12),
                                 if (_catalog.categoriesLoading)
-                                  const _Skeleton(height: 42)
+                                  _Skeleton(height: 42)
                                 else if (_catalog.categoriesError != null)
                                   TextButton.icon(
                                     onPressed: _catalog.loadCategories,
-                                    icon: const Icon(Icons.refresh),
-                                    label: const Text(
+                                    icon: Icon(Icons.refresh),
+                                    label: Text(
                                       'Could not load categories. Retry',
                                     ),
                                   )
@@ -246,14 +267,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ],
                                     ),
                                   ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: 24),
                                 _heading(
                                   'Discover products',
                                   trailing: 'THE SPOTLIGHT',
                                 ),
-                                const SizedBox(height: 14),
+                                SizedBox(height: 14),
                                 if (_loading)
-                                  const _Skeleton(height: 180)
+                                  _Skeleton(height: 180)
                                 else if (_error == null && featured.isNotEmpty)
                                   SizedBox(
                                     height: 260,
@@ -261,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       scrollDirection: Axis.horizontal,
                                       itemCount: featured.length,
                                       separatorBuilder: (_, index) =>
-                                          const SizedBox(width: 14),
+                                          SizedBox(width: 14),
                                       itemBuilder: (_, index) => SizedBox(
                                         width: 185,
                                         child: _card(featured[index]),
@@ -269,16 +290,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   )
                                 else if (_error == null)
-                                  const Padding(
+                                  Padding(
                                     padding: EdgeInsets.symmetric(vertical: 18),
                                     child: Text(
                                       'No products to discover yet.',
                                       style: TextStyle(
-                                        color: Color(0xFF94A3BF),
+                                        color: context.adaptive(0xFF94A3BF),
                                       ),
                                     ),
                                   ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: 24),
                               ],
                               _heading(
                                 _tab == 1
@@ -290,22 +311,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ? 'EXPLORING...'
                                     : '${visible.length} items',
                               ),
-                              const SizedBox(height: 14),
+                              SizedBox(height: 14),
                               Row(
                                 children: [
                                   OutlinedButton.icon(
                                     onPressed: _loading || _products.isEmpty
                                         ? null
                                         : _filter,
-                                    icon: const Icon(
-                                      Icons.tune_rounded,
-                                      size: 17,
-                                    ),
+                                    icon: Icon(Icons.tune_rounded, size: 17),
                                     label: Text(
                                       _maxPrice == null ? 'Filter' : 'Filter •',
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
+                                  SizedBox(width: 10),
                                   PopupMenuButton<int>(
                                     tooltip: 'Sort products',
                                     initialValue: _sort,
@@ -313,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       setState(() => _sort = value);
                                       _load();
                                     },
-                                    itemBuilder: (_) => const [
+                                    itemBuilder: (_) => [
                                       PopupMenuItem(
                                         value: 0,
                                         child: Text('Default order'),
@@ -331,7 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         child: Text('Name: A to Z'),
                                       ),
                                     ],
-                                    child: const Padding(
+                                    child: Padding(
                                       padding: EdgeInsets.all(12),
                                       child: Row(
                                         children: [
@@ -352,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         _sort = 0;
                                         _load();
                                       }),
-                                      child: const Text('Reset'),
+                                      child: Text('Reset'),
                                     ),
                                 ],
                               ),
@@ -361,12 +379,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         if (_loading)
                           SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 22),
+                            padding: EdgeInsets.symmetric(horizontal: 22),
                             sliver: SliverGrid.builder(
                               gridDelegate: _grid,
                               itemCount: 4,
-                              itemBuilder: (_, index) =>
-                                  const _Skeleton(height: 250),
+                              itemBuilder: (_, index) => _Skeleton(height: 250),
                             ),
                           )
                         else if (_error != null)
@@ -400,7 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           )
                         else
                           SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 22),
+                            padding: EdgeInsets.symmetric(horizontal: 22),
                             sliver: SliverGrid.builder(
                               gridDelegate: _grid,
                               itemCount: visible.length,
@@ -413,7 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             _catalog.hasMore)
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.all(22),
+                              padding: EdgeInsets.all(22),
                               child: OutlinedButton(
                                 onPressed: _catalog.loadingMore
                                     ? null
@@ -428,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+                        SliverToBoxAdapter(child: SizedBox(height: 28)),
                       ],
                     ),
                   ),
@@ -446,9 +463,9 @@ class _HomeScreenState extends State<HomeScreen> {
           });
           if (index == 0) _load();
         },
-        backgroundColor: const Color(0xFF0D172B),
-        indicatorColor: const Color(0xFF244CC4),
-        destinations: const [
+        backgroundColor: context.adaptive(0xFF0D172B),
+        indicatorColor: context.adaptive(0xFF244CC4),
+        destinations: [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
@@ -474,19 +491,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  SliverGridDelegate get _grid =>
-      const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 290,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 14,
-      );
+  SliverGridDelegate get _grid => SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 2,
+    mainAxisExtent: 290,
+    mainAxisSpacing: 16,
+    crossAxisSpacing: 14,
+  );
   Widget _heading(String title, {required String trailing}) => Row(
     children: [
       Expanded(
         child: Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             letterSpacing: -.5,
@@ -495,16 +511,16 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       Text(
         trailing,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10,
-          color: Color(0xFF94A3BF),
+          color: context.adaptive(0xFF94A3BF),
           letterSpacing: .5,
         ),
       ),
     ],
   );
   Widget _chip(String label, String? category) => Padding(
-    padding: const EdgeInsets.only(right: 8),
+    padding: EdgeInsets.only(right: 8),
     child: ChoiceChip(
       key: ValueKey(category ?? 'all-products'),
       label: Text(label),
@@ -533,40 +549,39 @@ class _HomeScreenState extends State<HomeScreen> {
     String subtitle, {
     bool retry = false,
   }) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 36),
+    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 36),
     child: Column(
       children: [
-        Icon(icon, size: 42, color: const Color(0xFF85AAFF)),
-        const SizedBox(height: 16),
+        Icon(icon, size: 42, color: context.adaptive(0xFF85AAFF)),
+        SizedBox(height: 16),
         Text(
           title,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 9),
+        SizedBox(height: 9),
         Text(
           subtitle,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Color(0xFF94A3BF)),
+          style: TextStyle(color: context.adaptive(0xFF94A3BF)),
         ),
         if (retry) ...[
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           FilledButton.icon(
             onPressed: _load,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
+            icon: Icon(Icons.refresh),
+            label: Text('Retry'),
           ),
         ],
       ],
     ),
   );
-  Widget _profile() => Center(
-    child: _message(
-      Icons.person_outline,
-      'Your space, coming soon',
-      'Account services haven’t been connected yet.',
-    ),
-  );
+  void _openLocalTab(int tab) => setState(() {
+    _tab = tab;
+    _query = '';
+    _category = null;
+    _maxPrice = null;
+  });
 
   Future<void> _filter() async {
     final input = TextEditingController(
@@ -591,17 +606,15 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Make it your collection',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(height: 22),
+                SizedBox(height: 22),
                 TextFormField(
                   controller: input,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
                     labelText: 'Maximum discounted price',
                     hintText: 'Leave blank for any price',
                   ),
@@ -613,7 +626,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         : null;
                   },
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -623,7 +636,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.pop(sheetContext);
                       if (_tab == 0) _load();
                     },
-                    child: const Text('Show results'),
+                    child: Text('Show results'),
                   ),
                 ),
               ],
@@ -647,7 +660,7 @@ class _SkeletonState extends State<_Skeleton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1000),
+    duration: Duration(milliseconds: 1000),
   )..repeat(reverse: true);
   @override
   void dispose() {
@@ -667,7 +680,7 @@ class _SkeletonState extends State<_Skeleton>
     child: Container(
       height: widget.height,
       decoration: BoxDecoration(
-        color: const Color(0xFF20304B),
+        color: context.adaptive(0xFF20304B),
         borderRadius: BorderRadius.circular(18),
       ),
     ),

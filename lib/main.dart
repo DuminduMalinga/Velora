@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'data/product_repository.dart';
 import 'screens/home_screen.dart';
+import 'state/app_settings.dart';
+import 'services/profile_image_service.dart';
+import 'theme/app_theme.dart';
 
 void main() => runApp(const MyApp());
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.repository});
+  const MyApp({super.key, this.repository, this.settings, this.imageService});
   final ProductRepository? repository;
-
+  final AppSettings? settings;
+  final ProfileImageService? imageService;
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -15,40 +19,33 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late final ProductRepository _repository =
       widget.repository ?? ApiProductRepository();
-
+  late final AppSettings _settings = widget.settings ?? AppSettings();
+  late final ProfileImageService _imageService =
+      widget.imageService ?? GalleryProfileImageService();
   @override
   void dispose() {
     if (widget.repository == null) _repository.dispose();
+    if (widget.settings == null) _settings.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Velora',
-    debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF080F20),
-      colorScheme: const ColorScheme.dark(
-        primary: Color(0xFF4275FF),
-        secondary: Color(0xFF85AAFF),
-        surface: Color(0xFF111D34),
-        onSurface: Color(0xFFF2F5FF),
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF080F20),
-        elevation: 0,
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: const Color(0xFF111D34),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _settings,
+    builder: (context, _) => MaterialApp(
+      title: 'Velora',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: _settings.themeMode,
+      themeAnimationDuration: const Duration(milliseconds: 250),
+      locale: _settings.systemLanguage ? null : const Locale('en'),
+      supportedLocales: const [Locale('en')],
+      home: HomeScreen(
+        repository: _repository,
+        settings: _settings,
+        imageService: _imageService,
       ),
     ),
-    home: HomeScreen(repository: _repository),
   );
 }

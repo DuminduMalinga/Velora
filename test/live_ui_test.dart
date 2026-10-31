@@ -6,6 +6,7 @@ import 'package:velora/main.dart';
 import 'package:velora/screens/cart_screen.dart';
 import 'package:velora/screens/checkout_preview_screen.dart';
 import 'package:velora/screens/product_details_screen.dart';
+import 'package:velora/screens/profile_screen.dart';
 import 'package:velora/widgets/product_card.dart';
 
 // Allow actual HTTP requests rather than Flutter's default test HTTP rejection.
@@ -220,6 +221,29 @@ void main() {
           );
           expect(homeBadge.isLabelVisible, isFalse);
         }
+        await tester.tap(find.text('Profile'));
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.byType(ProfileScreen), findsOneWidget);
+        expect(find.byType(NavigationBar), findsOneWidget);
+        await tester.ensureVisible(find.text('My Wishlist'));
+        await tester.tap(find.text('My Wishlist'));
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.text('Save something you love'), findsOneWidget);
+        await tester.tap(find.text('Profile'));
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.ensureVisible(find.text('Dark Mode'));
+        await tester.tap(find.text('Dark Mode'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(
+          Theme.of(tester.element(find.byType(ProfileScreen))).brightness,
+          Brightness.light,
+        );
+        await tester.ensureVisible(find.text('Shopping Cart'));
+        await tester.tap(find.text('Shopping Cart'));
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.text('Your bag is a blank canvas.'), findsOneWidget);
+        expect(find.byType(NavigationBar), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();

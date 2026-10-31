@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a profile photo for your local Velora profile. Photos are not uploaded.</string>
 </dict>
 </plist>

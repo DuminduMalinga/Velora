@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/product_repository.dart';
 import '../models/product.dart';
+import '../state/shop_state.dart';
+import 'product_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.repository});
@@ -11,8 +13,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Product> _products = [];
-  final Set<String> _favorites = {};
-  final Map<String, int> _cart = {};
+  final ShopState _shop = ShopState();
+  Set<String> get _favorites => _shop.favorites;
+  Map<String, int> get _cart => _shop.quantities;
   bool _loading = true;
   Object? _error;
   String _query = '';
@@ -24,7 +27,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _shop.addListener(_shopChanged);
     _load();
+  }
+
+  void _shopChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    _shop.removeListener(_shopChanged);
+    _shop.dispose();
+    super.dispose();
+  }
+
+  void _openProduct(Product product) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ProductDetailsScreen(
+          productId: product.id,
+          repository: widget.repository,
+          shop: _shop,
+        ),
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -49,7 +74,10 @@ class _HomeScreenState extends State<HomeScreen> {
       .toSet()
       .toList();
   List<Product> get _visible {
-    final result = _products
+    final source = _tab == 2
+        ? {for (final line in _shop.lines) line.productId: line.product}.values
+        : _products;
+    final result = source
         .where(
           (p) =>
               (_tab != 1 || _favorites.contains(p.id)) &&
@@ -500,143 +528,168 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   );
 
-  Widget _card(Product product) => Container(
+  Widget _card(Product product) => Material(
     clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      color: const Color(0xFF111D34),
+    color: const Color(0xFF111D34),
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(19),
-      border: Border.all(color: const Color(0xFF20304B)),
+      side: const BorderSide(color: Color(0xFF20304B)),
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(
-                color: const Color(0xFF19253B),
-                child: product.imageUrl == null
-                    ? const Icon(
-                        Icons.image_not_supported_outlined,
-                        color: Color(0xFF8392AE),
-                      )
-                    : Image.network(
-                        product.imageUrl!,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (_, child, progress) => progress == null
-                            ? child
-                            : const _Skeleton(height: 160),
-                        errorBuilder: (_, error, stack) => const Icon(
-                          Icons.broken_image_outlined,
+    child: InkWell(
+      onTap: () => _openProduct(product),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  color: const Color(0xFF19253B),
+                  child: product.imageUrl == null
+                      ? const Icon(
+                          Icons.image_not_supported_outlined,
                           color: Color(0xFF8392AE),
+                        )
+                      : Image.network(
+                          product.imageUrl!,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (_, child, progress) =>
+                              progress == null
+                              ? child
+                              : const _Skeleton(height: 160),
+                          errorBuilder: (_, error, stack) => const Icon(
+                            Icons.broken_image_outlined,
+                            color: Color(0xFF8392AE),
+                          ),
                         ),
-                      ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton.filledTonal(
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xDD0D172B),
-                  ),
-                  tooltip: _favorites.contains(product.id)
-                      ? 'Remove from wishlist'
-                      : 'Add to wishlist',
-                  onPressed: () => setState(() {
-                    if (!_favorites.add(product.id)) {
-                      _favorites.remove(product.id);
-                    }
-                  }),
-                  icon: Icon(
-                    _favorites.contains(product.id)
-                        ? Icons.favorite
-                        : Icons.favorite_border,
-                    size: 20,
-                    color: _favorites.contains(product.id)
-                        ? const Color(0xFF85AAFF)
-                        : Colors.white,
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton.filledTonal(
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xDD0D172B),
+                    ),
+                    tooltip: _favorites.contains(product.id)
+                        ? 'Remove from wishlist'
+                        : 'Add to wishlist',
+                    onPressed: () => _shop.toggleFavorite(product.id),
+                    icon: Icon(
+                      _favorites.contains(product.id)
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      size: 20,
+                      color: _favorites.contains(product.id)
+                          ? const Color(0xFF85AAFF)
+                          : Colors.white,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (product.category != null)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (product.category != null)
+                  Text(
+                    product.category!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF94A3BF),
+                    ),
+                  ),
+                const SizedBox(height: 4),
                 Text(
-                  product.category!,
-                  maxLines: 1,
+                  product.name,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF94A3BF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              const SizedBox(height: 4),
-              Text(
-                product.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      product.formattedPrice,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF85AAFF),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: 32,
-                    width: 32,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      tooltip: _tab == 2 ? 'Remove from cart' : 'Add to cart',
-                      onPressed: () => setState(() {
-                        if (_tab == 2) {
-                          _cart.remove(product.id);
-                        } else {
-                          _cart.update(
-                            product.id,
-                            (n) => n + 1,
-                            ifAbsent: () => 1,
-                          );
-                        }
-                      }),
-                      icon: Icon(
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
                         _tab == 2
-                            ? Icons.remove_circle_outline
-                            : Icons.add_circle_outline,
-                        size: 22,
+                            ? product.formatPrice(
+                                _shop.lines
+                                    .where(
+                                      (line) => line.productId == product.id,
+                                    )
+                                    .fold<double>(
+                                      0,
+                                      (total, line) =>
+                                          total +
+                                          line.unitPrice * line.quantity,
+                                    ),
+                              )
+                            : product.formattedPrice,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF85AAFF),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              if (_tab == 2)
-                Text(
-                  'Quantity: ${_cart[product.id]}',
-                  style: const TextStyle(fontSize: 11),
+                    SizedBox(
+                      height: 32,
+                      width: 32,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        tooltip: _tab == 2 ? 'Remove from cart' : 'Add to cart',
+                        onPressed: () {
+                          if (_tab == 2) {
+                            _shop.removeProduct(product.id);
+                          } else {
+                            _openProduct(product);
+                          }
+                        },
+                        icon: Icon(
+                          _tab == 2
+                              ? Icons.remove_circle_outline
+                              : Icons.add_circle_outline,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-            ],
+                if (_tab == 2)
+                  Text(
+                    'Quantity: ${_cart[product.id]}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                if (_tab == 2)
+                  Text(
+                    _shop.lines
+                        .where((line) => line.productId == product.id)
+                        .map(
+                          (line) =>
+                              '${line.variation?.name ?? product.name}: ${line.quantity} x ${product.formatPrice(line.unitPrice)}',
+                        )
+                        .join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF94A3BF),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 

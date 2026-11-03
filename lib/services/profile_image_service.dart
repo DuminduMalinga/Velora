@@ -13,8 +13,9 @@ class GalleryProfileImageService extends ProfileImageService {
   final ImagePicker _picker;
   Future<Uint8List?> _read(XFile? file) async {
     if (file == null) return null;
-    if (await file.length() > 10 * 1024 * 1024)
+    if (await file.length() > 10 * 1024 * 1024) {
       throw const FormatException('Choose an image smaller than 10 MB.');
+    }
     final bytes = await file.readAsBytes();
     final codec = await ui.instantiateImageCodec(bytes, targetWidth: 512);
     codec.dispose();

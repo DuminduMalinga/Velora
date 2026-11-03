@@ -30,9 +30,15 @@ The application is a demonstration storefront. Payment processing, order placeme
 | Checkout preview | Review selected items, quantities, and estimated totals. |
 | Local profile | Edit contact details and select or remove a profile photo. |
 | Appearance | Switch between system, light, and dark themes. |
-| Preferences | Manage local notification and language preferences. |
+| Preferences | Enable discount and new-arrival notifications and choose a language preference. |
 
 Loading indicators, empty states, and retry actions provide feedback throughout the shopping flow.
+
+### Notifications
+
+On Android and iOS, the Notifications switch requests device permission and saves the user's choice. With permission enabled, Velora checks the complete catalog immediately, every 15 minutes while the app is in the foreground, and when returning to the foreground. The first check reports available discounts and records a baseline. Later checks alert for newly added product IDs, increased discounts, and lower discounted prices. Catalog snapshots persist on the device to suppress repeated alerts across sessions. Bag changes do not trigger notifications.
+
+Checks stop when notifications are disabled or the app leaves the foreground. Failed catalog requests preserve the last successful snapshot. Notifications while the app is closed require a push notification backend. App-update alerts have a dedicated notification type/channel, but are not generated until a published release/version source is connected.
 
 ## Getting started
 

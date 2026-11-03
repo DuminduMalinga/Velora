@@ -6,10 +6,22 @@ import 'package:image_picker/image_picker.dart';
 import 'package:velora/screens/edit_profile_screen.dart';
 import 'package:velora/screens/profile_screen.dart';
 import 'package:velora/services/profile_image_service.dart';
+import 'package:velora/services/notification_service.dart';
 import 'package:velora/state/app_settings.dart';
 import 'package:velora/state/shop_state.dart';
 import 'package:velora/theme/app_theme.dart';
 import 'package:velora/widgets/profile_widgets.dart';
+
+const discountAlert = AppAlert(
+  type: AlertType.discount,
+  title: 'Discount',
+  body: '20% off',
+);
+const arrivalAlert = AppAlert(
+  type: AlertType.newArrival,
+  title: 'New arrival',
+  body: 'A new product',
+);
 
 // A test-only PNG validates image handling; no user profile is seeded in the app.
 Uint8List testPhoto() => base64Decode(
@@ -24,6 +36,18 @@ class SelectedPhotoService extends ProfileImageService {
     if (error != null) throw error!;
     return next;
   }
+}
+
+class TestNotificationService implements NotificationService {
+  bool allowed = true;
+  bool enabled = false;
+  final List<AppAlert> updates = [];
+  @override
+  Future<bool> restore() async => enabled;
+  @override
+  Future<bool> setEnabled(bool value) async => enabled = value && allowed;
+  @override
+  Future<void> showAlert(AppAlert alert) async => updates.add(alert);
 }
 
 class TestGalleryPicker extends ImagePicker {
@@ -79,19 +103,66 @@ Future<void> tapVisible(WidgetTester tester, String text) async {
 
 void main() {
   test(
+    'Catalog notifications respect permission, restored preference and opt-out',
+    () async {
+      final service = TestNotificationService()..allowed = false;
+      final settings = AppSettings(notificationService: service);
+      await settings.setNotifications(true);
+      expect(settings.notifications, isFalse);
+      expect(settings.notificationError, contains('device settings'));
+      await settings.notifyAlert(discountAlert);
+      expect(service.updates, isEmpty);
+      service.allowed = true;
+      await settings.setNotifications(true);
+      expect(settings.notifications, isTrue);
+      expect(settings.notificationError, isNull);
+      await settings.notifyAlert(discountAlert);
+      await settings.notifyAlert(arrivalAlert);
+      expect(service.updates, [discountAlert, arrivalAlert]);
+      final restored = AppSettings(notificationService: service);
+      await restored.restoreNotifications();
+      expect(restored.notifications, isTrue);
+      await settings.setNotifications(false);
+      await settings.notifyAlert(discountAlert);
+      expect(service.updates, [discountAlert, arrivalAlert]);
+      settings.dispose();
+      restored.dispose();
+    },
+  );
+
+  testWidgets(
+    'Notification permission denial keeps switch off and explains recovery',
+    (tester) async {
+      final service = TestNotificationService()..allowed = false;
+      final settings = AppSettings(notificationService: service);
+      final shop = ShopState();
+      await tester.pumpWidget(harness(settings, shop, SelectedPhotoService()));
+      expect(find.text('Currency'), findsNothing);
+      await tapVisible(tester, 'Notifications');
+      expect(settings.notifications, isFalse);
+      expect(find.textContaining('Enable them for Velora'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      settings.dispose();
+      shop.dispose();
+    },
+  );
+
+  test(
     'Settings start without a user or authentication and remain session-only',
-    () {
-      final settings = AppSettings();
+    () async {
+      final settings = AppSettings(
+        notificationService: TestNotificationService(),
+      );
       expect(settings.name, isNull);
       expect(settings.email, isNull);
       expect(settings.phone, isNull);
       expect(settings.photo, isNull);
-      settings.setNotifications(true);
+      await settings.setNotifications(true);
       settings.setDarkMode(false);
       settings.setSystemLanguage(false);
       expect(settings.themeMode, ThemeMode.light);
       expect(settings.notifications, isTrue);
-      final fresh = AppSettings();
+      final fresh = AppSettings(notificationService: TestNotificationService());
       expect(fresh.notifications, isFalse);
       expect(fresh.name, isNull);
       expect(fresh.themeMode, ThemeMode.dark);
@@ -134,7 +205,9 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final settings = AppSettings();
+      final settings = AppSettings(
+        notificationService: TestNotificationService(),
+      );
       final shop = ShopState();
       final service = SelectedPhotoService();
       var wishlist = false;
@@ -170,9 +243,7 @@ void main() {
       expect(settings.systemLanguage, isFalse);
       for (final title in [
         'My Orders',
-        'Currency',
         'Help Center',
-        'Contact Us',
         'Privacy Policy',
         'Terms & Conditions',
         'About Velora',
@@ -180,10 +251,16 @@ void main() {
       ]) {
         await tapVisible(tester, title);
         expect(find.byType(ProfileInfoScreen), findsOneWidget);
+        final info = tester.widget<ProfileInfoScreen>(
+          find.byType(ProfileInfoScreen),
+        );
+        expect(info.message.toLowerCase(), isNot(contains('dummy')));
+        expect(info.message.toLowerCase(), isNot(contains('json')));
         await tester.pageBack();
         await tester.pumpAndSettle();
       }
       expect(tester.takeException(), isNull);
+      expect(find.text('Contact Us'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       settings.dispose();
       shop.dispose();
@@ -193,7 +270,9 @@ void main() {
   testWidgets(
     'Edit validates local fields, stages a photo, saves, and handles denied access',
     (tester) async {
-      final settings = AppSettings();
+      final settings = AppSettings(
+        notificationService: TestNotificationService(),
+      );
       final shop = ShopState();
       final service = SelectedPhotoService()..next = testPhoto();
       await tester.pumpWidget(harness(settings, shop, service));

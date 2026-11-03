@@ -3,6 +3,8 @@ import 'data/product_repository.dart';
 import 'screens/home_screen.dart';
 import 'state/app_settings.dart';
 import 'services/profile_image_service.dart';
+import 'services/notification_service.dart';
+import 'services/catalog_alert_service.dart';
 import 'theme/app_theme.dart';
 
 void main() => runApp(const MyApp());
@@ -16,14 +18,51 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final ProductRepository _repository =
       widget.repository ?? ApiProductRepository();
-  late final AppSettings _settings = widget.settings ?? AppSettings();
+  late final AppSettings _settings =
+      widget.settings ??
+      AppSettings(notificationService: LocalNotificationService());
   late final ProfileImageService _imageService =
       widget.imageService ?? GalleryProfileImageService();
+  late final CatalogAlertService _alerts = CatalogAlertService(
+    repository: _repository,
+    notify: _settings.notifyAlert,
+  );
+  bool _foreground = true;
+
+  void _syncAlerts() {
+    if (_foreground && _settings.notifications) {
+      _alerts.start();
+    } else {
+      _alerts.stop();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _settings.addListener(_syncAlerts);
+    _syncAlerts();
+    if (widget.settings == null) _settings.restoreNotifications();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _syncAlerts();
+    if (state == AppLifecycleState.resumed && !_settings.notificationBusy) {
+      _settings.restoreNotifications();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _settings.removeListener(_syncAlerts);
+    _alerts.stop();
     if (widget.repository == null) _repository.dispose();
     if (widget.settings == null) _settings.dispose();
     super.dispose();

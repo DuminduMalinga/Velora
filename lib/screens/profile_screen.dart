@@ -62,7 +62,7 @@ class ProfileScreen extends StatelessWidget {
             context,
             'My Orders',
             Icons.receipt_long_outlined,
-            'Velora uses DummyJSON demonstration products. There is no commercial order-processing backend or order history. Checkout is a preview and does not place orders.',
+            'Order history is not available yet. Checkout lets you review your bag, but does not place an order or take payment.',
           ),
         ),
         ProfileMenuTile(
@@ -84,8 +84,11 @@ class ProfileScreen extends StatelessWidget {
             'Notifications',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
-          subtitle: const Text(
-            'Local preference only. No notifications are sent.',
+          subtitle: Text(
+            settings.notificationError ??
+                (settings.notificationBusy
+                    ? 'Updating notification permission...'
+                    : 'Receive notifications about your account and orders'),
             style: TextStyle(fontSize: 12),
           ),
           secondary: Icon(
@@ -93,7 +96,9 @@ class ProfileScreen extends StatelessWidget {
             color: theme.colorScheme.primary,
           ),
           value: settings.notifications,
-          onChanged: settings.setNotifications,
+          onChanged: settings.notificationBusy
+              ? null
+              : settings.setNotifications,
         ),
         SwitchListTile.adaptive(
           title: const Text(
@@ -123,23 +128,12 @@ class ProfileScreen extends StatelessWidget {
               : 'English',
           onTap: () => _language(context),
         ),
-        ProfileMenuTile(
-          icon: Icons.payments_outlined,
-          title: 'Currency',
-          description: 'Prices as supplied by the product API',
-          onTap: () => _info(
-            context,
-            'Currency',
-            Icons.payments_outlined,
-            'DummyJSON does not supply a standard currency field or currency-conversion service. Velora displays the returned prices without inventing a currency or exchange rate. Currency conversion is not available.',
-          ),
-        ),
       ]);
       final support = _section(context, 'Support', [
         ProfileMenuTile(
           icon: Icons.help_outline,
           title: 'Help Center',
-          description: 'Get familiar with your shopping demo',
+          description: 'Find your way around Velora',
           onTap: () => _info(
             context,
             'Help Center',
@@ -148,47 +142,36 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
         ProfileMenuTile(
-          icon: Icons.chat_bubble_outline,
-          title: 'Contact Us',
-          description: 'Support contact is not configured',
-          onTap: () => _info(
-            context,
-            'Contact Us',
-            Icons.chat_bubble_outline,
-            'A support email, phone number and messaging service have not been configured for this demo. No message is sent from this page.',
-          ),
-        ),
-        ProfileMenuTile(
           icon: Icons.shield_outlined,
           title: 'Privacy Policy',
-          description: 'Privacy information for this demo',
+          description: 'How your information is handled',
           onTap: () => _info(
             context,
             'Privacy Policy',
             Icons.shield_outlined,
-            'An official privacy policy has not been supplied. This page is not a legal policy.\n\nProfile details and selected photos are kept in application memory, not uploaded by Velora. Product and image requests are sent to DummyJSON and its image servers. A native photo picker may use temporary platform-managed files. A production release requires a reviewed privacy policy.',
+            'Your information\nThe name, email address, phone number and profile photo you choose to add are used to personalize your experience. These details stay in application memory during your session and are not uploaded by Velora.\n\nPhotos and permissions\nVelora opens your device photo picker only when you choose to change your profile picture. The picker may use temporary files managed by your device. You can remove your selected photo from Edit Profile.\n\nCatalog and images\nLoading products and images connects to external services. These services receive network information, such as your IP address, and handle requests under their own privacy policies.\n\nPreferences and saved items\nYour appearance and language preferences, wishlist and shopping bag are kept for the current session. Your notification preference is saved on this device. When enabled with your permission, Velora checks the catalog while the app is open and sends local alerts for discounts and new arrivals. Catalog history is saved on this device to avoid repeating alerts. You can turn them off in the app or your device settings.\n\nYour choices\nAdding profile details is optional. You can edit or clear these details in Edit Profile. Session information resets when the application session ends.\n\nPolicy updates\nReview this screen when you update Velora for changes to how the app handles information.',
           ),
         ),
         ProfileMenuTile(
           icon: Icons.description_outlined,
           title: 'Terms & Conditions',
-          description: 'Terms have not been published',
+          description: 'Guidelines for using Velora',
           onTap: () => _info(
             context,
             'Terms & Conditions',
             Icons.description_outlined,
-            'Official terms and conditions have not been supplied for this demonstration application. This page does not create commercial terms or a purchasing agreement. A production store needs its own reviewed terms.',
+            'Using Velora\nThese terms describe use of the Velora app. By using the app, you agree to use its features responsibly and for lawful purposes.\n\nProduct information\nYou can browse products, view details and reviews, save favorites and manage your shopping bag. Prices, stock, images and descriptions may change. Review the latest product information before making a decision.\n\nCheckout and orders\nCheckout currently provides a bag preview only. It does not submit an order, process a payment or arrange delivery. Adding an item to your bag does not reserve stock or create a purchase agreement.\n\nYour profile\nOnly add information and photos that you have permission to use. Profile details, preferences, your wishlist and bag last for the current application session.\n\nResponsible use\nDo not misuse the app, attempt unauthorized access or interfere with its services. Product content belongs to its respective owners; viewing it does not grant rights to reuse it.\n\nAvailability and changes\nFeatures and catalog access may change or be temporarily unavailable. These terms may be updated as the app develops. Nothing in these terms limits rights that apply to you under applicable law.',
           ),
         ),
         ProfileMenuTile(
           icon: Icons.info_outline,
           title: 'About Velora',
-          description: 'Thoughtful shopping, built as a demo',
+          description: 'Thoughtful shopping, made simple',
           onTap: () => _info(
             context,
             'About Velora',
             Icons.diamond_outlined,
-            'Velora is a Flutter shopping demonstration with a live DummyJSON catalog, product details, local wishlist and shopping bag.\n\nProfile information and preferences stay in memory for this session. Authentication, shipping, notifications, payments and commercial order processing are not connected.',
+            'Discover your next favorite\nVelora brings product discovery, saved favorites and your shopping bag together in one simple space. Browse categories, search for something specific and explore product images, descriptions, ratings and reviews.\n\nMake it yours\nKeep items you love in your wishlist, adjust quantities in your bag and personalize your profile with your details and a photo. Choose a light or dark appearance to suit your style.\n\nA considered experience\nVelora is designed to make browsing clear, comfortable and easy to navigate. Your profile, preferences and saved items stay with you during the current session. Checkout currently lets you review your bag; ordering and payment are not yet available.\n\nVelora 1.0.0\nThoughtful shopping, made simple.',
           ),
         ),
       ]);
@@ -323,7 +306,7 @@ class ProfileScreen extends StatelessWidget {
                   context,
                   'Logout',
                   Icons.logout,
-                  'Authentication is not available in this demo. There is no signed-in account to log out of. Your local profile, wishlist and bag remain available for this session.',
+                  'There is no signed-in account to log out of. Your local profile, wishlist and bag remain available for this session.',
                 ),
                 icon: const Icon(Icons.logout, size: 19),
                 label: const Text('Logout'),

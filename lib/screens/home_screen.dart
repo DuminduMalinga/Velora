@@ -57,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _shopChanged() => setState(() {});
+
   void _continueShopping() {
     setState(() {
       _tab = 0;

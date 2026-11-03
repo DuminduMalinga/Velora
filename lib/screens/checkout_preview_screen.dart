@@ -445,15 +445,6 @@ class _CheckoutPreviewScreenState extends State<CheckoutPreviewScreen> {
           CheckoutPreviewScreen.paymentMessage,
           style: TextStyle(height: 1.5),
         ),
-        SizedBox(height: 10),
-        Text(
-          'The SDK callback is not secure server-side verification. No real order is created. The bag clears only on Sandbox completion. Results are kept in memory for this session.',
-          style: TextStyle(
-            fontSize: 12,
-            color: context.adaptive(0xFF94A3BF),
-            height: 1.5,
-          ),
-        ),
       ],
     ),
   );

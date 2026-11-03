@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'data/product_repository.dart';
 import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 import 'state/app_settings.dart';
 import 'services/profile_image_service.dart';
 import 'services/notification_service.dart';
@@ -80,10 +81,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       themeAnimationDuration: const Duration(milliseconds: 250),
       locale: _settings.systemLanguage ? null : const Locale('en'),
       supportedLocales: const [Locale('en')],
-      home: HomeScreen(
-        repository: _repository,
-        settings: _settings,
-        imageService: _imageService,
+      home: SplashScreen(
+        homeBuilder: (_) => HomeScreen(
+          repository: _repository,
+          settings: _settings,
+          imageService: _imageService,
+        ),
       ),
     ),
   );

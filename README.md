@@ -22,6 +22,7 @@ The application is a demonstration storefront. Payment processing, order placeme
 
 | Feature | Experience |
 | --- | --- |
+| Welcome experience | Animated vector logo and splash, responsive shopping artwork, and a smooth transition into the existing Home Screen. |
 | Product discovery | Browse a paginated catalog, search products, and explore categories. |
 | Filters and sorting | Filter by maximum discounted price and sort by list price or title. |
 | Product details | Explore images, descriptions, discounts, availability, reviews, and related products. |

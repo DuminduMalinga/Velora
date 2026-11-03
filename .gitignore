@@ -1,4 +1,5 @@
 # Miscellaneous
+/config/payhere.local.json
 *.class
 *.log
 *.pyc

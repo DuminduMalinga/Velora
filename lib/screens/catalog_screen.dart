@@ -4,6 +4,7 @@ import '../data/product_repository.dart';
 import '../models/product.dart';
 import '../state/product_provider.dart';
 import '../state/shop_state.dart';
+import '../state/app_settings.dart';
 import '../widgets/product_card.dart';
 import 'product_details_screen.dart';
 
@@ -14,15 +15,18 @@ class SearchScreen extends StatelessWidget {
     required this.shop,
     this.initialQuery = '',
     this.onContinueShopping,
+    this.settings,
   });
   final ProductRepository repository;
   final ShopState shop;
+  final AppSettings? settings;
   final String initialQuery;
   final VoidCallback? onContinueShopping;
   @override
   Widget build(BuildContext context) => CatalogScreen(
     repository: repository,
     shop: shop,
+    settings: settings,
     initialQuery: initialQuery,
     onContinueShopping: onContinueShopping,
   );
@@ -35,15 +39,18 @@ class CategoryScreen extends StatelessWidget {
     required this.shop,
     required this.category,
     this.onContinueShopping,
+    this.settings,
   });
   final ProductRepository repository;
   final ShopState shop;
+  final AppSettings? settings;
   final ProductCategory category;
   final VoidCallback? onContinueShopping;
   @override
   Widget build(BuildContext context) => CatalogScreen(
     repository: repository,
     shop: shop,
+    settings: settings,
     category: category,
     onContinueShopping: onContinueShopping,
   );
@@ -57,9 +64,11 @@ class CatalogScreen extends StatefulWidget {
     this.initialQuery = '',
     this.category,
     this.onContinueShopping,
+    this.settings,
   });
   final ProductRepository repository;
   final ShopState shop;
+  final AppSettings? settings;
   final String initialQuery;
   final ProductCategory? category;
   final VoidCallback? onContinueShopping;
@@ -263,6 +272,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                           productId: product.id,
                           repository: widget.repository,
                           shop: widget.shop,
+                          settings: widget.settings,
                           onContinueShopping: widget.onContinueShopping,
                         ),
                       ),

@@ -41,6 +41,10 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         final repository = ApiProductRepository();
         await tester.pumpWidget(MyApp(repository: repository));
+        await tester.pump(const Duration(milliseconds: 2700));
+        await tester.pump(const Duration(seconds: 1));
+        await tester.tap(find.text('Start Shopping'));
+        await tester.pump(const Duration(seconds: 1));
         await waitFor(
           tester,
           () => find.byType(ChoiceChip).evaluate().isNotEmpty,

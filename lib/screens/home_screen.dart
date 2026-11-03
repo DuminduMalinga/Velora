@@ -8,6 +8,7 @@ import 'product_details_screen.dart';
 import 'cart_screen.dart';
 import 'catalog_screen.dart';
 import '../widgets/product_card.dart';
+import '../widgets/velora_logo.dart';
 import '../state/app_settings.dart';
 import '../services/profile_image_service.dart';
 import 'profile_screen.dart';
@@ -122,14 +123,9 @@ class _HomeScreenState extends State<HomeScreen> {
         toolbarHeight: 78,
         title: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(Icons.diamond_outlined, size: 23),
+            VeloraLogo(
+              size: 36,
+              onLight: Theme.of(context).brightness == Brightness.light,
             ),
             SizedBox(width: 10),
             Text(
@@ -196,10 +192,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ? 'Your shopping bag.'
                                     : 'Find your next\nfavorite thing.',
                                 style: TextStyle(
-                                  fontSize: 34,
-                                  height: 1.15,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -1.2,
+                                  fontFamily: 'Inter',
+                                  fontSize: 32,
+                                  height: 1.22,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -1,
                                 ),
                               ),
                               SizedBox(height: 10),

@@ -85,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
         productId: product.id,
         repository: widget.repository,
         shop: _shop,
+        settings: _settings,
         onContinueShopping: _continueShopping,
       ),
     ),
@@ -163,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _tab == 2
                 ? CartScreen(
                     shop: _shop,
+                    settings: _settings,
                     repository: widget.repository,
                     embedded: true,
                     onContinueShopping: _continueShopping,
@@ -223,6 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Navigator.of(context).push(
                                       MaterialPageRoute<void>(
                                         builder: (_) => SearchScreen(
+                                          settings: _settings,
                                           repository: widget.repository,
                                           shop: _shop,
                                           initialQuery: value,

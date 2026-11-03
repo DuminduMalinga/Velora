@@ -23,6 +23,24 @@ class ShippingQuote {
 }
 
 class ShopState extends ChangeNotifier {
+  bool paymentInProgress = false;
+  void beginPayment() {
+    if (paymentInProgress) {
+      throw StateError('A payment is already in progress.');
+    }
+    paymentInProgress = true;
+    notifyListeners();
+  }
+
+  void endPayment({bool completed = false}) {
+    if (completed) {
+      _lines.clear();
+      _shipping = null;
+    }
+    paymentInProgress = false;
+    notifyListeners();
+  }
+
   final Set<int> _favorites = {};
   final Map<int, Product> _knownProducts = {};
   List<Product> get favoriteProducts =>
@@ -56,6 +74,7 @@ class ShopState extends ChangeNotifier {
 
   // A quote is supplied by a future shipping service, never guessed locally.
   bool setShippingQuote(ShippingQuote quote) {
+    if (paymentInProgress) return false;
     if (_lines.isEmpty ||
         hasMixedCurrencies ||
         !quote.amount.isFinite ||
@@ -69,6 +88,7 @@ class ShopState extends ChangeNotifier {
   }
 
   bool setQuantity(int productId, String? variationId, int quantity) {
+    if (paymentInProgress) return false;
     final key = (productId, variationId);
     final line = _lines[key];
     if (line == null || quantity < 1) return false;
@@ -88,6 +108,7 @@ class ShopState extends ChangeNotifier {
   }
 
   void removeLine(int productId, String? variationId) {
+    if (paymentInProgress) return;
     if (_lines.remove((productId, variationId)) == null) return;
     _shipping = null;
     notifyListeners();
@@ -118,6 +139,7 @@ class ShopState extends ChangeNotifier {
   }
 
   void reconcile(Product product) {
+    if (paymentInProgress) return;
     _knownProducts[product.id] = product;
     for (final key
         in _lines.keys.where((key) => key.$1 == product.id).toList()) {
@@ -184,6 +206,7 @@ class ShopState extends ChangeNotifier {
   }
 
   bool add(Product product, ProductVariation? variation, int quantity) {
+    if (paymentInProgress) return false;
     _knownProducts[product.id] = product;
     if (product.variations.isNotEmpty &&
         !product.variations.contains(variation)) {
@@ -203,6 +226,7 @@ class ShopState extends ChangeNotifier {
   }
 
   void removeProduct(int id) {
+    if (paymentInProgress) return;
     _lines.removeWhere((key, value) => key.$1 == id);
     _shipping = null;
     notifyListeners();

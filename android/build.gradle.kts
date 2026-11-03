@@ -2,6 +2,12 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://jitpack.io")
+            content { includeGroup("com.github.PayHereDevs") }
+        }
+        mavenLocal()
+        maven { url = uri("https://repo.repsy.io/mvn/payhere/payhere-mobilesdk-android/") }
     }
 }
 

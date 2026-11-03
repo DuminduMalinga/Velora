@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../data/product_repository.dart';
 import '../models/product.dart';
 import '../state/shop_state.dart';
+import '../state/app_settings.dart';
 import 'cart_screen.dart';
+import 'checkout_preview_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   const ProductDetailsScreen({
@@ -12,7 +14,9 @@ class ProductDetailsScreen extends StatefulWidget {
     required this.repository,
     required this.shop,
     this.onContinueShopping,
+    this.settings,
   });
+  final AppSettings? settings;
   final int productId;
   final ProductRepository repository;
   final ShopState shop;
@@ -111,6 +115,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               MaterialPageRoute<void>(
                 builder: (_) => CartScreen(
                   shop: widget.shop,
+                  settings: widget.settings,
                   repository: widget.repository,
                   onContinueShopping: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -122,6 +127,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         productId: product.id,
                         repository: widget.repository,
                         shop: widget.shop,
+                        settings: widget.settings,
                         onContinueShopping: widget.onContinueShopping,
                       ),
                     ),
@@ -259,6 +265,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                                   productId: related.id,
                                                   repository: widget.repository,
                                                   shop: widget.shop,
+                                                  settings: widget.settings,
                                                   onContinueShopping:
                                                       widget.onContinueShopping,
                                                 ),
@@ -669,6 +676,55 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   : 'Add to Cart',
             ),
           ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed:
+                widget.shop.paymentInProgress ||
+                    (!canAdd && widget.shop.lines.isEmpty)
+                ? null
+                : () {
+                    // Checkout keeps the existing bag. Add this selection only
+                    // when the bag is empty, avoiding a second Add to Cart.
+                    if (widget.shop.lines.isEmpty) {
+                      if (!widget.shop.add(product, _variation, _quantity)) {
+                        return;
+                      }
+                      setState(() => _quantity = 1);
+                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CheckoutPreviewScreen(
+                          shop: widget.shop,
+                          settings: widget.settings,
+                          onContinueShopping: () {
+                            Navigator.of(
+                              context,
+                            ).popUntil((route) => route.isFirst);
+                            widget.onContinueShopping?.call();
+                          },
+                        ),
+                      ),
+                    );
+                  },
+            icon: const Icon(Icons.payment_outlined),
+            label: const Text('Checkout'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          widget.shop.lines.isEmpty
+              ? 'Checkout adds the selected quantity to your bag.'
+              : 'Checkout reviews the items already in your bag.',
+          style: TextStyle(fontSize: 12, color: context.adaptive(0xFF94A3BF)),
         ),
       ],
     );

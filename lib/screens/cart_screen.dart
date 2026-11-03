@@ -2,6 +2,7 @@ import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../state/shop_state.dart';
+import '../state/app_settings.dart';
 import '../data/product_repository.dart';
 import 'checkout_preview_screen.dart';
 
@@ -14,8 +15,10 @@ class CartScreen extends StatelessWidget {
     this.onProductTap,
     this.embedded = false,
     this.repository,
+    this.settings,
   });
   final ShopState shop;
+  final AppSettings? settings;
   final VoidCallback onContinueShopping;
   final ValueChanged<Product>? onProductTap;
   final bool embedded;
@@ -434,7 +437,7 @@ class CartScreen extends StatelessWidget {
           ),
           SizedBox(height: 24),
           Text(
-            'Demo checkout preview only. Payment and order processing are not connected.',
+            'PayHere Sandbox demo available at checkout. No real transaction or production-verified order.',
             style: TextStyle(
               fontSize: 12,
               color: context.adaptive(0xFF94A3BF),
@@ -537,7 +540,11 @@ class CartScreen extends StatelessWidget {
   Future<void> _checkout(BuildContext context) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CheckoutPreviewScreen(shop: shop),
+        builder: (_) => CheckoutPreviewScreen(
+          shop: shop,
+          settings: settings,
+          onContinueShopping: onContinueShopping,
+        ),
       ),
     );
   }

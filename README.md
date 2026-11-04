@@ -8,12 +8,6 @@ Velora is a Flutter shopping app for discovering products, saving favorites, and
 
 [Features](#features) · [Screenshots](#screenshots) · [Getting started](#getting-started) · [Architecture](#how-it-works) · [Tests](#tests)
 
-<p align="center">
-  <img src="screenshots/light/home.png" width="230" alt="Velora home in light mode" />
-  <img src="screenshots/light/product_details.png" width="230" alt="Product details" />
-  <img src="screenshots/dark/home.png" width="230" alt="Velora home in dark mode" />
-</p>
-
 ## Features
 
 - **Product discovery:** browse a live, paginated catalog with search and category filters.

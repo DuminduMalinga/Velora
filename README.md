@@ -1,5 +1,9 @@
 ﻿# Velora
 
+<p align="center">
+  <img src="assets/branding/velora-app-icon.png" width="120" alt="Velora app icon">
+</p>
+
 A Flutter shopping app for discovering products, saving favorites, and managing your bag in light and dark themes.
 
 ## Features
@@ -11,6 +15,15 @@ A Flutter shopping app for discovering products, saving favorites, and managing 
 - Light and dark themes with optional local catalog alerts
 
 ## App Screenshots
+
+### Splash and Welcome Screens
+
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/onboarding/splash.png" width="180" alt="Velora splash screen"><br>Splash Screen</td>
+    <td align="center"><img src="screenshots/onboarding/welcome.png" width="180" alt="Velora welcome screen"><br>Welcome Screen</td>
+  </tr>
+</table>
 
 ### Light Theme
 

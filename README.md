@@ -13,8 +13,9 @@ Velora is a Flutter shopping app for discovering products, saving favorites, and
 - **Product discovery:** browse a live, paginated catalog with search and category filters.
 - **Filtering and sorting:** set a maximum discounted price or sort by list price and product title.
 - **Product details:** view galleries, descriptions, discounts, stock availability, ratings, reviews, and related products.
-- **Wishlist:** save favorites and keep them synchronized across shopping screens.
-- **Shopping bag:** adjust quantities within available stock, review totals, and refresh prices and inventory.
+- **Wishlist:** save favorites, keep them synchronized across shopping screens, and keep them after a restart.
+- **Shopping bag:** adjust quantities within available stock, review totals, refresh prices and inventory, and keep the bag after closing the app.
+- **Fast images:** product photos are cached on the device, so they load instantly after the first view.
 - **Sandbox checkout:** review the bag, enter customer details, and try simulated payments through the PayHere SDK.
 - **Local profile:** edit your name, email, and phone number, and select a profile photo from the gallery.
 - **Catalog alerts:** optionally receive local notifications for new arrivals and discount changes while the app is active.
@@ -39,6 +40,10 @@ Velora is a Flutter shopping app for discovering products, saving favorites, and
 |:---:|:---:|
 | <img src="screenshots/light/wishlist.png" width="230" alt="Wishlist in light mode" /> | <img src="screenshots/light/profile.png" width="230" alt="Profile in light mode" /> |
 
+### Browsing
+
+<p align="center"><img src="screenshots/dark/category_filter.png" width="230" alt="Fragrances category with filter, sort and reset" /></p>
+
 ### Dark mode
 
 | Home | Product details | Shopping bag |
@@ -56,7 +61,8 @@ Velora is a Flutter shopping app for discovering products, saving favorites, and
 | Framework | Flutter / Dart with Material 3 |
 | Product catalog | DummyJSON Products API |
 | Networking | `http` |
-| State management | Flutter `ChangeNotifier` |
+| State management | `provider` with `ChangeNotifier` (`ProductProvider`, `ShopState`, `AppSettings`) |
+| Image caching | `cached_network_image` |
 | Local preferences | `shared_preferences` |
 | Notifications | `flutter_local_notifications` |
 | Profile photo | `image_picker` |
@@ -77,13 +83,13 @@ Velora is a Flutter shopping app for discovering products, saving favorites, and
 
 | Data | Storage and lifetime |
 |---|---|
-| Cart and wishlist | In memory for the current session |
+| Cart and wishlist | Local SharedPreferences, restored on the next launch (`CartStorage`) |
 | Profile details and photo | In memory; no upload or authenticated account |
 | Theme and language preferences | In memory for the current session |
 | Notification preference and catalog comparison snapshot | Local SharedPreferences |
 | Payment result | Session-only SDK result; no persistent order record |
 
-The catalog and remote images require internet access. English is the available translation. Product data does not supply a standard currency field; Sandbox checkout explicitly treats numeric prices as **LKR demo prices**, without currency conversion.
+The catalog and remote images require internet access. English is the available translation. Product data does not supply a standard currency field, so the whole app (cards, details, bag, and Sandbox checkout) shows numeric prices as **LKR demo prices**, without currency conversion.
 
 ## Project structure
 
@@ -93,7 +99,7 @@ lib/
   data/                         API client and repository interface
   models/                       Product, review, category, and page models
   screens/                      Welcome, catalog, details, cart, profile, checkout
-  services/                     Photo selection, notifications, alerts, payments
+  services/                     Cart storage, photo selection, notifications, alerts, payments
   state/                        Catalog, shopping state, and local settings
   theme/                        Material 3 light and dark themes
   widgets/                      Product cards, profile components, branding
@@ -190,7 +196,7 @@ These tests exercise real API mapping, images, product discovery, pricing, inven
 | Area | Current implementation |
 |---|---|
 | Product browsing | Live catalog, categories, search, filters, and pagination |
-| Shopping interactions | Session wishlist, stock-aware cart, and inventory refresh |
+| Shopping interactions | Saved wishlist, saved stock-aware cart, and inventory refresh |
 | Profile | Local editing and gallery photo selection |
 | Notifications | Optional foreground catalog monitoring and local alerts |
 | Checkout | Customer details and simulated PayHere Sandbox payments |

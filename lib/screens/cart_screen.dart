@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../models/product.dart';
@@ -25,122 +27,124 @@ class CartScreen extends StatelessWidget {
   final ProductRepository? repository;
 
   String _money(double amount, String? currency) =>
-      '${currency == null ? '' : '$currency '}${amount.toStringAsFixed(2)}';
+      '${currency ?? kDemoCurrency} ${amount.toStringAsFixed(2)}';
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: shop,
-    builder: (context, _) {
-      final content = shop.lines.isEmpty
-          ? _empty(context)
-          : SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(22, 20, 22, 32),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: 1080),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'YOUR NEXT FAVORITES',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: context.adaptive(0xFF85AAFF),
-                          letterSpacing: 2.2,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        'Your shopping bag.',
-                        style: TextStyle(
-                          fontSize: 32,
-                          height: 1.2,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        '${shop.itemCount} ${shop.itemCount == 1 ? 'item' : 'items'} chosen by you',
-                        style: TextStyle(color: context.adaptive(0xFF94A3BF)),
-                      ),
-                      SizedBox(height: 28),
-                      if (repository != null)
-                        Padding(
-                          padding: EdgeInsets.only(bottom: 14),
-                          child: TextButton.icon(
-                            onPressed: () async {
-                              try {
-                                await shop.refreshCart(repository!);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Prices and available quantities updated.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              } catch (_) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Could not refresh your bag. Your current items are still shown.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            icon: Icon(Icons.refresh, size: 18),
-                            label: Text('Refresh prices & stock'),
+  Widget build(BuildContext context) => ChangeNotifierProvider.value(
+    value: shop,
+    child: Consumer<ShopState>(
+      builder: (context, shop, _) {
+        final content = shop.lines.isEmpty
+            ? _empty(context)
+            : SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(22, 20, 22, 32),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 1080),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'YOUR NEXT FAVORITES',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: context.adaptive(0xFF85AAFF),
+                            letterSpacing: 2.2,
                           ),
                         ),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final items = Column(
-                            children: [
-                              for (final line in shop.lines)
-                                Padding(
-                                  padding: EdgeInsets.only(bottom: 14),
-                                  child: _item(context, line),
-                                ),
-                            ],
-                          );
-                          if (constraints.maxWidth >= 780) {
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        SizedBox(height: 10),
+                        Text(
+                          'Your shopping bag.',
+                          style: TextStyle(
+                            fontSize: 32,
+                            height: 1.2,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          '${shop.itemCount} ${shop.itemCount == 1 ? 'item' : 'items'} chosen by you',
+                          style: TextStyle(color: context.adaptive(0xFF94A3BF)),
+                        ),
+                        SizedBox(height: 28),
+                        if (repository != null)
+                          Padding(
+                            padding: EdgeInsets.only(bottom: 14),
+                            child: TextButton.icon(
+                              onPressed: () async {
+                                try {
+                                  await shop.refreshCart(repository!);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Prices and available quantities updated.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Could not refresh your bag. Your current items are still shown.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              icon: Icon(Icons.refresh, size: 18),
+                              label: Text('Refresh prices & stock'),
+                            ),
+                          ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final items = Column(
                               children: [
-                                Expanded(flex: 6, child: items),
-                                SizedBox(width: 28),
-                                Expanded(flex: 4, child: _summary(context)),
+                                for (final line in shop.lines)
+                                  Padding(
+                                    padding: EdgeInsets.only(bottom: 14),
+                                    child: _item(context, line),
+                                  ),
                               ],
                             );
-                          }
-                          return Column(
-                            children: [
-                              items,
-                              SizedBox(height: 10),
-                              _summary(context),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
+                            if (constraints.maxWidth >= 780) {
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(flex: 6, child: items),
+                                  SizedBox(width: 28),
+                                  Expanded(flex: 4, child: _summary(context)),
+                                ],
+                              );
+                            }
+                            return Column(
+                              children: [
+                                items,
+                                SizedBox(height: 10),
+                                _summary(context),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-      return embedded
-          ? content
-          : Scaffold(
-              appBar: AppBar(
-                title: Text('Shopping bag', style: TextStyle(fontSize: 18)),
-              ),
-              body: SafeArea(child: content),
-            );
-    },
+              );
+        return embedded
+            ? content
+            : Scaffold(
+                appBar: AppBar(
+                  title: Text('Shopping bag', style: TextStyle(fontSize: 18)),
+                ),
+                body: SafeArea(child: content),
+              );
+      },
+    ),
   );
 
   Widget _item(BuildContext context, CartLine line) {
@@ -189,22 +193,19 @@ class CartScreen extends StatelessWidget {
                               color: context.adaptive(0xFF8392AE),
                               semanticLabel: 'No image available',
                             )
-                          : Image.network(
-                              image,
+                          : CachedNetworkImage(
+                              imageUrl: image,
                               fit: BoxFit.contain,
-                              loadingBuilder: (_, child, progress) =>
-                                  progress == null
-                                  ? child
-                                  : Center(
-                                      child: SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    ),
-                              errorBuilder: (_, error, stack) => Icon(
+                              placeholder: (_, _) => Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (_, _, _) => Icon(
                                 Icons.broken_image_outlined,
                                 semanticLabel: 'Image unavailable',
                               ),

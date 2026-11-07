@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../data/product_repository.dart';
@@ -359,7 +360,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             setState(() => _image = index),
                         itemBuilder: (_, index) => Padding(
                           padding: EdgeInsets.all(12),
-                          child: _photo(images[index]),
+                          child: _photo(
+                            images[index],
+                            preview: product.thumbnail,
+                          ),
                         ),
                       ),
                       if (images.length > 1)
@@ -730,7 +734,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     );
   }
 
-  Widget _photo(String? url) => url == null
+  Widget _photo(String? url, {String? preview}) => url == null
       ? Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -748,12 +752,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ],
           ),
         )
-      : Image.network(
-          url,
+      : CachedNetworkImage(
+          imageUrl: url,
           fit: BoxFit.contain,
-          loadingBuilder: (_, child, progress) =>
-              progress == null ? child : _DetailsSkeleton(imageOnly: true),
-          errorBuilder: (_, error, stack) => Center(
+          // The thumbnail is already cached from the product card, so it
+          // appears instantly while the full-size image downloads.
+          placeholder: (_, _) => preview == null || preview == url
+              ? _DetailsSkeleton(imageOnly: true)
+              : CachedNetworkImage(
+                  imageUrl: preview,
+                  fit: BoxFit.contain,
+                  placeholder: (_, _) => _DetailsSkeleton(imageOnly: true),
+                  errorWidget: (_, _, _) => _DetailsSkeleton(imageOnly: true),
+                ),
+          errorWidget: (_, _, _) => Center(
             child: Icon(
               Icons.broken_image_outlined,
               size: 38,

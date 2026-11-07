@@ -19,7 +19,9 @@ class HomeScreen extends StatefulWidget {
     required this.repository,
     this.settings,
     this.imageService,
+    this.shop,
   });
+  final ShopState? shop;
   final ProductRepository repository;
   final AppSettings? settings;
   final ProfileImageService? imageService;
@@ -30,7 +32,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final ProductProvider _catalog;
   List<Product> get _products => _catalog.products;
-  final ShopState _shop = ShopState();
+  late final ShopState _shop = widget.shop ?? ShopState();
   late final AppSettings _settings = widget.settings ?? AppSettings();
   late final ProfileImageService _imageService =
       widget.imageService ?? GalleryProfileImageService();
@@ -74,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _catalog.removeListener(_catalogChanged);
     _catalog.dispose();
     _shop.removeListener(_shopChanged);
-    _shop.dispose();
+    if (widget.shop == null) _shop.dispose();
     if (widget.settings == null) _settings.dispose();
     super.dispose();
   }

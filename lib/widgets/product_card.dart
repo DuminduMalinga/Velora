@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../models/product.dart';
@@ -15,19 +16,17 @@ class ProductImage extends StatelessWidget {
             semanticLabel: 'No image available',
           ),
         )
-      : Image.network(
-          url!,
+      : CachedNetworkImage(
+          imageUrl: url!,
           fit: fit,
-          loadingBuilder: (_, child, progress) => progress == null
-              ? child
-              : Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-          errorBuilder: (_, error, stack) => Center(
+          placeholder: (_, _) => Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          errorWidget: (_, _, _) => Center(
             child: Icon(
               Icons.broken_image_outlined,
               color: context.adaptive(0xFF8392AE),

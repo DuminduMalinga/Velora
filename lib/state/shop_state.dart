@@ -16,6 +16,31 @@ class CartLine {
   double get subtotal => (unitPrice * 100).round() * quantity / 100;
 }
 
+extension CartLineJson on CartLine {
+  Map<String, dynamic> toJson() => {
+    'product': product.toJson(),
+    'variationId': variation?.id,
+    'quantity': quantity,
+  };
+
+  static CartLine? fromJson(Map<String, dynamic> json) {
+    final product = Product.fromJson(
+      Map<String, dynamic>.from(json['product'] as Map),
+    );
+    final variationId = json['variationId'] as String?;
+    final variation = variationId == null
+        ? null
+        : product.variations.where((v) => v.id == variationId).firstOrNull;
+    final quantity = json['quantity'];
+    if (quantity is! int ||
+        quantity < 1 ||
+        (variationId != null && variation == null)) {
+      return null;
+    }
+    return CartLine(product: product, variation: variation, quantity: quantity);
+  }
+}
+
 class ShippingQuote {
   const ShippingQuote({required this.amount, this.currency});
   final double amount;
@@ -38,6 +63,26 @@ class ShopState extends ChangeNotifier {
       _shipping = null;
     }
     paymentInProgress = false;
+    notifyListeners();
+  }
+
+  /// Replaces the cart with previously saved lines (used on app start).
+  void restoreLines(Iterable<CartLine> saved) {
+    if (paymentInProgress) return;
+    for (final line in saved) {
+      _knownProducts[line.productId] = line.product;
+      _lines[(line.productId, line.variation?.id)] = line;
+    }
+    _shipping = null;
+    notifyListeners();
+  }
+
+  /// Restores saved favorites without toggling any that are already set.
+  void restoreFavorites(Iterable<Product> saved) {
+    for (final product in saved) {
+      _knownProducts[product.id] = product;
+      _favorites.add(product.id);
+    }
     notifyListeners();
   }
 

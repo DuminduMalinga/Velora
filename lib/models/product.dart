@@ -1,3 +1,7 @@
+/// DummyJSON prices carry no currency. The app treats them as demo LKR prices,
+/// which is also what the PayHere sandbox checkout requires.
+const String kDemoCurrency = 'LKR';
+
 class ProductVariation {
   const ProductVariation({
     required this.id,
@@ -9,6 +13,12 @@ class ProductVariation {
   final String name;
   final double? price;
   final int? stock;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'price': ?price,
+    'stock': ?stock,
+  };
   factory ProductVariation.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
     final name = json['name'] ?? json['label'];
@@ -89,7 +99,7 @@ class ProductModel {
   double get effectivePrice =>
       (price * (1 - (discountPercentage ?? 0) / 100) * 100).round() / 100;
   String formatPrice(double value) =>
-      '${currency == null ? '' : '$currency '}${value.toStringAsFixed(2)}';
+      '${currency ?? kDemoCurrency} ${value.toStringAsFixed(2)}';
   String get formattedPrice => formatPrice(effectivePrice);
   int? availableStock(ProductVariation? variation) {
     if (stock == 0) return 0;
@@ -122,6 +132,24 @@ class ProductModel {
     }
     return number.toInt();
   }
+
+  /// Compact form used for persisting the cart (reviews are omitted).
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'price': price,
+    'description': ?description,
+    'discountPercentage': ?discountPercentage,
+    'rating': ?rating,
+    'stock': ?stock,
+    'brand': ?brand,
+    'category': ?category,
+    'thumbnail': ?thumbnail,
+    'images': images,
+    'availabilityStatus': ?availabilityStatus,
+    'currency': ?currency,
+    'variations': variations.map((v) => v.toJson()).toList(),
+  };
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     final id = readCount(json['id']);

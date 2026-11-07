@@ -1,5 +1,6 @@
 import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import '../models/product.dart';
 import '../state/shop_state.dart';
 import '../state/app_settings.dart';
 import '../services/sandbox_payment_service.dart';
@@ -215,7 +216,7 @@ class _CheckoutPreviewScreenState extends State<CheckoutPreviewScreen> {
   );
 
   String _money(double amount, String? currency) =>
-      '${currency ?? 'LKR'} ${amount.toStringAsFixed(2)}';
+      '${currency ?? kDemoCurrency} ${amount.toStringAsFixed(2)}';
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(

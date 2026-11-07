@@ -44,3 +44,24 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets and credentials - never commit these
+/config/*.local.json
+/config/*.secret.*
+.env
+.env.*
+*.env
+secrets.json
+*.pem
+*.p12
+*.pfx
+*.key
+*.jks
+*.keystore
+key.properties
+local.properties
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+*.mobileprovision
+*.dart-define*.json
